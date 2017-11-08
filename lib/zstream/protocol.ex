@@ -3,12 +3,12 @@ defmodule Zstream.Protocol do
 
   @comment "Created by Zstream"
 
-  def local_file_header(name, _options) do
+  def local_file_header(name, options) do
     [
     << 0x04034b50 :: little-size(32) >>, # local file header signature
     << 20 :: little-size(16) >>, # version needed to extract
     general_purpose_bit_flag(),
-    << 8 :: little-size(16) >>, # compression method
+    << compression_method(options) :: little-size(16) >>, # compression method
     << 0 :: little-size(16) >>, # last mod file time
     << 0 :: little-size(16) >>, # last mod file date
     << 0 :: little-size(32) >>, # crc-32
@@ -35,7 +35,7 @@ defmodule Zstream.Protocol do
     << 52 :: little-size(16) >>, # version made by
     << 20 :: little-size(16) >>, # version needed to extract
     general_purpose_bit_flag(),
-    << 8 :: little-size(16) >>, # compression method
+    << compression_method(entry.options) :: little-size(16) >>, # compression method
     << 0 :: little-size(16) >>, # last mod file time
     << 0 :: little-size(16) >>, # last mod file date
     << entry.crc :: little-size(32) >>, # crc-32
@@ -76,5 +76,10 @@ defmodule Zstream.Protocol do
     unix_perms = 0o644
     file_type_file = 0o10
     (file_type_file <<< 12 ||| (unix_perms &&& 0o7777)) <<< 16
+  end
+
+  def compression_method(options) do
+    {coder, _opts} = Keyword.fetch!(options, :coder)
+    coder.compression_method()
   end
 end
