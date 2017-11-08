@@ -4,7 +4,7 @@ defmodule Zstream do
   defmodule State do
     @entry_initial_state %{local_file_header_offset: nil, crc: nil, c_size: 0, size: 0, options: []}
 
-    defstruct handle: nil, entries: [], offset: 0, current: @entry_initial_state, coder: nil, coder_state: nil
+    defstruct zlib_handle: nil, entries: [], offset: 0, current: @entry_initial_state, coder: nil, coder_state: nil
 
     def entry_initial_state do
       @entry_initial_state
@@ -19,33 +19,26 @@ defmodule Zstream do
   def create(entries) do
     Stream.concat([
       [{:start}],
-      Stream.concat(
-        Enum.map(entries, fn %{stream: stream, name: name, options: options} ->
-          Stream.transform(stream, %{name: name, options: options}, &stream_entry/2)
-        end)
-      ),
+      Stream.map(entries, fn %{stream: stream, name: name, options: options} ->
+        Stream.concat(
+          [{:head, %{name: name, options: options}}],
+          stream
+        )
+      end)
+      |> Stream.concat,
       [{:end}]
     ])
     |> Stream.transform(%State{}, &construct/2)
   end
 
-  defp stream_entry(chunk, :body) do
-    {[chunk], :body}
-  end
-
-  defp stream_entry(chunk, header) do
-    {[{:head, header}, chunk], :body}
-  end
-
   defp construct({:start}, state) do
-    handle = :zlib.open()
-    put_in(state.handle, handle)
+    state = put_in(state.zlib_handle, :zlib.open())
     {[], state}
   end
 
   defp construct({:end}, state) do
     {compressed, state} = close_entry(state)
-    :ok = :zlib.close(state.handle)
+    :ok = :zlib.close(state.zlib_handle)
     central_directory_headers = Enum.map(state.entries, &Protocol.central_directory_header/1)
     central_directory_end = Protocol.central_directory_end(state.offset, IO.iodata_length(central_directory_headers), length(state.entries))
     {[compressed, central_directory_headers, central_directory_end], state}
@@ -56,10 +49,9 @@ defmodule Zstream do
     {coder, coder_opts} = Keyword.fetch!(header.options, :coder)
     state = put_in(state.coder, coder)
     state = put_in(state.coder_state, state.coder.init(coder_opts))
-    state = put_in(state.handle, :zlib.open())
     state = update_in(state.current, &(Map.merge(&1, header)))
     state = put_in(state.current.options, header.options)
-    state = put_in(state.current.crc, :zlib.crc32(state.handle, <<>>))
+    state = put_in(state.current.crc, :zlib.crc32(state.zlib_handle, <<>>))
     state = put_in(state.current.local_file_header_offset, state.offset)
     local_file_header = Protocol.local_file_header(header.name, header.options)
     state = update_in(state.offset, &(&1 + IO.iodata_length(local_file_header)))
@@ -71,7 +63,7 @@ defmodule Zstream do
     c_size = IO.iodata_length(compressed)
     state = put_in(state.coder_state, coder_state)
     state = update_in(state.current.c_size, &(&1 + c_size))
-    state = update_in(state.current.crc, &(:zlib.crc32(state.handle, &1, chunk)))
+    state = update_in(state.current.crc, &(:zlib.crc32(state.zlib_handle, &1, chunk)))
     state = update_in(state.current.size, &(&1 + IO.iodata_length(chunk)))
     state = update_in(state.offset, &(&1 + c_size))
     {[compressed], state}

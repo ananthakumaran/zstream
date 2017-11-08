@@ -19,6 +19,7 @@ defmodule Zstream.Mixfile do
 
   defp deps do
     [
+      {:temp, "~> 0.4", only: :test}
     ]
   end
 end
