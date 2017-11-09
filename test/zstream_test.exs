@@ -29,6 +29,17 @@ defmodule ZstreamTest do
     ])
   end
 
+  test "stream" do
+    big_file = Stream.repeatedly(&random_bytes/0) |> Stream.take(200)
+
+    assert_memory()
+    Zstream.create([
+      Zstream.entry("big_file", big_file),
+      Zstream.entry("big_file", big_file, coder: Zstream.Coder.Stored)
+    ]) |> Stream.run
+    assert_memory()
+  end
+
   defp verify(entries) do
     compressed = Zstream.create(entries)
     |> as_binary
@@ -75,5 +86,15 @@ defmodule ZstreamTest do
 
   defp file(name) do
     File.stream!(Path.join([__DIR__, "fixture", name]))
+  end
+
+  def random_bytes() do
+    :crypto.strong_rand_bytes(1024 * 1024)
+  end
+
+  def assert_memory do
+    total = (:erlang.memory() |> Keyword.fetch!(:total)) / (1024 * 1024)
+    Logger.debug "Total memory: #{total}"
+    assert total < 150
   end
 end
