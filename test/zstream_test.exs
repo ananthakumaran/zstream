@@ -6,7 +6,7 @@ defmodule ZstreamTest do
   test "zip" do
     verify([
       Zstream.entry("kafan", file("kafan.txt")),
-      Zstream.entry("kafka_uncompressed", file("kafan.txt"), coder: {Zstream.Coder.Stored, []})
+      Zstream.entry("kafka_uncompressed", file("kafan.txt"), coder: Zstream.Coder.Stored)
     ])
 
     verify([
@@ -15,22 +15,21 @@ defmodule ZstreamTest do
 
     verify([
       Zstream.entry("empty_file", []),
-      Zstream.entry("empty_file_1", [""], coder: {Zstream.Coder.Stored, []})
+      Zstream.entry("empty_file_1", [], coder: Zstream.Coder.Stored)
     ])
 
     verify([
-      Zstream.entry("moby.txt", file("moby_dick.txt"), coder: {Zstream.Coder.Stored, []}),
-      Zstream.entry("deep/moby.txt", file("moby_dick.txt"), coder: {Zstream.Coder.Stored, []}),
-      Zstream.entry("deep/deep/deep/deep/moby.txt", file("moby_dick.txt"), coder: {Zstream.Coder.Stored, []})
+      Zstream.entry("moby.txt", file("moby_dick.txt"), coder: Zstream.Coder.Stored),
+      Zstream.entry("deep/moby.txt", file("moby_dick.txt"), coder: Zstream.Coder.Stored),
+      Zstream.entry("deep/deep/deep/deep/moby.txt", file("moby_dick.txt"), coder: Zstream.Coder.Stored)
     ])
 
     verify([
-      Zstream.entry("empty_folder_1/", []),
       Zstream.entry("empty_folder/.keep", [])
     ])
   end
 
-  def verify(entries) do
+  defp verify(entries) do
     compressed = Zstream.create(entries)
     |> as_binary
 
@@ -50,7 +49,7 @@ defmodule ZstreamTest do
     verify_using_os_binary(entries)
   end
 
-  def verify_using_os_binary(entries) do
+  defp verify_using_os_binary(entries) do
     Temp.track!
     path = Temp.path!(%{suffix: ".zip"})
     Zstream.create(entries)
@@ -59,17 +58,22 @@ defmodule ZstreamTest do
 
     {response, exit_code} = System.cmd("unzip", ["-t", path])
     Logger.debug(response)
-    File.rm!(path)
     assert exit_code == 0
+
+    {response, exit_code} = System.cmd("zipinfo", [path])
+    Logger.debug(response)
+    assert exit_code == 0
+
+    File.rm!(path)
   end
 
-  def as_binary(stream) do
+  defp as_binary(stream) do
     stream
     |> Enum.to_list
     |> IO.iodata_to_binary
   end
 
-  def file(name) do
+  defp file(name) do
     File.stream!(Path.join([__DIR__, "fixture", name]))
   end
 end

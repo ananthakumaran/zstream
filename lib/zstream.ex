@@ -13,7 +13,9 @@ defmodule Zstream do
 
   @default [coder: {Zstream.Coder.Deflate, []}]
   def entry(name, stream, options \\ []) do
-    %{name: name, stream: stream, options: Keyword.merge(@default, options)}
+    options = Keyword.merge(@default, options)
+    |> update_in([:coder], &normalize_coder/1)
+    %{name: name, stream: stream, options: options}
   end
 
   def create(entries) do
@@ -30,6 +32,9 @@ defmodule Zstream do
     ])
     |> Stream.transform(%State{}, &construct/2)
   end
+
+  defp normalize_coder(module) when is_atom(module), do: {module, []}
+  defp normalize_coder({module, args}), do: {module, args}
 
   defp construct({:start}, state) do
     state = put_in(state.zlib_handle, :zlib.open())
