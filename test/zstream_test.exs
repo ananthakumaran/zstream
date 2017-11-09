@@ -35,7 +35,7 @@ defmodule ZstreamTest do
     assert_memory()
     Zstream.create([
       Zstream.entry("big_file", big_file),
-      Zstream.entry("big_file", big_file, coder: Zstream.Coder.Stored)
+      Zstream.entry("big_file_2", big_file, coder: Zstream.Coder.Stored)
     ]) |> Stream.run
     assert_memory()
   end
