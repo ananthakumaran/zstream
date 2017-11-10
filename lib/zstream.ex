@@ -21,13 +21,12 @@ defmodule Zstream do
   def create(entries) do
     Stream.concat([
       [{:start}],
-      Stream.map(entries, fn %{stream: stream, name: name, options: options} ->
+      Stream.flat_map(entries, fn %{stream: stream, name: name, options: options} ->
         Stream.concat(
           [{:head, %{name: name, options: options}}],
           stream
         )
-      end)
-      |> Stream.concat,
+      end),
       [{:end}]
     ])
     |> Stream.transform(%State{}, &construct/2)
