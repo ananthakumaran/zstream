@@ -47,10 +47,14 @@ defmodule Zstream do
     `Zstream.Coder.Stored` - store without any compression
 
      Defaults to `Zstream.Coder.Deflate`
+
+  * `:mtime` (DateTime) - File last modication time. Defaults to system local time.
   """
   @spec entry(String.t, Enumerable.t, Keyword.t) :: entry
   def entry(name, enum, options \\ []) do
-    options = Keyword.merge(@default, options)
+    local_time = :calendar.local_time() |> NaiveDateTime.from_erl!
+    options = Keyword.merge(@default, [mtime: local_time])
+    |> Keyword.merge(options)
     |> update_in([:coder], &normalize_coder/1)
     %{name: name, stream: enum, options: options}
   end
