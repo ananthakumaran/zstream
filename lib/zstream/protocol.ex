@@ -1,4 +1,6 @@
 defmodule Zstream.Protocol do
+  @moduledoc false
+
   use Bitwise
 
   @comment "Created by Zstream"

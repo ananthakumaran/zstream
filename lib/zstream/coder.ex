@@ -1,4 +1,6 @@
 defmodule Zstream.Coder do
+  @moduledoc false
+
   @callback init(options :: Keyword.t) :: term
 
   @callback encode(iodata, state :: term) :: {iodata, term}

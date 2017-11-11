@@ -1,7 +1,23 @@
 defmodule Zstream do
+  @moduledoc """
+  Module for creating ZIP file stream
+
+  ## Example
+
+  ```
+  Zstream.create([
+    Zstream.entry("report.csv", Stream.map(records, &CSV.dump/1)),
+    Zstream.entry("catfilm.mp4", File.stream!("/catfilm.mp4"), coder: Zstream.Coder.Stored)
+  ])
+  |> Stream.into(File.stream!("/archive.zip"))
+  |> Stream.run
+  ```
+  """
   alias Zstream.Protocol
 
   defmodule State do
+    @moduledoc false
+
     @entry_initial_state %{local_file_header_offset: nil, crc: nil, c_size: 0, size: 0, options: []}
 
     defstruct zlib_handle: nil, entries: [], offset: 0, current: @entry_initial_state, coder: nil, coder_state: nil
@@ -11,13 +27,40 @@ defmodule Zstream do
     end
   end
 
+  @opaque entry :: map
+
   @default [coder: {Zstream.Coder.Deflate, []}]
-  def entry(name, stream, options \\ []) do
+
+  @doc """
+  Creates a ZIP file entry with the given `name`
+
+  The `enum` could be either lazy `Stream` or `List`. The elements in `enum`
+  should be of type `iodata`
+
+  ## Options
+
+  * `:coder` (module | {module, list}) - The compressor that should be
+    used to encode the data. Available options are
+
+    `Zstream.Coder.Deflate` - use deflate compression
+
+    `Zstream.Coder.Stored` - store without any compression
+
+     Defaults to `Zstream.Coder.Deflate`
+  """
+  @spec entry(String.t, Enumerable.t, Keyword.t) :: entry
+  def entry(name, enum, options \\ []) do
     options = Keyword.merge(@default, options)
     |> update_in([:coder], &normalize_coder/1)
-    %{name: name, stream: stream, options: options}
+    %{name: name, stream: enum, options: options}
   end
 
+  @doc """
+  Creates a ZIP file stream
+
+  entries are consumed one by one in the given order
+  """
+  @spec create([entry]) :: Enumerable.t
   def create(entries) do
     Stream.concat([
       [{:start}],

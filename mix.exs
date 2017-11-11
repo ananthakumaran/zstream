@@ -1,12 +1,17 @@
 defmodule Zstream.Mixfile do
   use Mix.Project
 
+  @version "0.1.0"
+
   def project do
     [
       app: :zstream,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.4",
       start_permanent: Mix.env == :prod,
+      description: "Streaming zip file writer",
+      package: package(),
+      docs: docs(),
       deps: deps()
     ]
   end
@@ -19,7 +24,21 @@ defmodule Zstream.Mixfile do
 
   defp deps do
     [
-      {:temp, "~> 0.4", only: :test}
+      {:temp, "~> 0.4", only: :test},
+      {:ex_doc, "~> 0.18", only: :dev},
     ]
+  end
+
+  defp package do
+    %{licenses: ["MIT"],
+      links: %{"Github" => "https://github.com/ananthakumaran/zstream"},
+      maintainers: ["ananthakumaran@gmail.com"]}
+  end
+
+  defp docs do
+    [source_url: "https://github.com/ananthakumaran/zstream",
+     source_ref: "v#{@version}",
+     main: Zstream,
+     extras: ["README.md"]]
   end
 end
