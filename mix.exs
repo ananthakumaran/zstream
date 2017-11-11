@@ -12,6 +12,10 @@ defmodule Zstream.Mixfile do
       description: "Streaming zip file writer",
       package: package(),
       docs: docs(),
+      dialyzer: [
+        plt_add_deps: :transitive,
+        flags: [:unmatched_returns, :race_conditions, :error_handling, :underspecs]
+      ],
       deps: deps()
     ]
   end
