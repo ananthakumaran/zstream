@@ -1,6 +1,7 @@
 # Zstream
 
 [![Build Status](https://secure.travis-ci.org/ananthakumaran/zstream.svg)](http://travis-ci.org/ananthakumaran/zstream)
+[![Hex.pm](https://img.shields.io/hexpm/v/zstream.svg)](https://hex.pm/packages/zstream)
 
 An elixir library to create ZIP file in a streaming fashion. It could
 consume data from any stream and write to any stream with constant
