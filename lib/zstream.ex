@@ -72,7 +72,7 @@ defmodule Zstream do
       end),
       [{:end}]
     ])
-    |> Stream.transform(%State{}, &construct/2)
+    |> Stream.transform(fn -> %State{} end, &construct/2, &free_resource/1)
   end
 
   defp normalize_coder(module) when is_atom(module), do: {module, []}
@@ -86,6 +86,7 @@ defmodule Zstream do
   defp construct({:end}, state) do
     {compressed, state} = close_entry(state)
     :ok = :zlib.close(state.zlib_handle)
+    state = put_in(state.zlib_handle, nil)
     central_directory_headers = Enum.map(state.entries, &Protocol.central_directory_header/1)
     central_directory_end = Protocol.central_directory_end(state.offset, IO.iodata_length(central_directory_headers), length(state.entries))
     {[compressed, central_directory_headers, central_directory_end], state}
@@ -120,6 +121,8 @@ defmodule Zstream do
     if state.coder do
       compressed = state.coder.close(state.coder_state)
       c_size = IO.iodata_length(compressed)
+      state = put_in(state.coder, nil)
+      state = put_in(state.coder_state, nil)
       state = update_in(state.offset, &(&1 + c_size))
       state = update_in(state.current.c_size, &(&1 + c_size))
       data_descriptor = Protocol.data_descriptor(state.current.crc, state.current.c_size, state.current.size)
@@ -129,6 +132,23 @@ defmodule Zstream do
       {[compressed, data_descriptor], state}
     else
       {[], state}
+    end
+  end
+
+  defp free_resource(state) do
+    state = if state.coder do
+      _compressed = state.coder.close(state.coder_state)
+      state = put_in(state.coder, nil)
+      put_in(state.coder_state, nil)
+    else
+      state
+    end
+
+    if state.zlib_handle do
+      :ok = :zlib.close(state.zlib_handle)
+      put_in(state.zlib_handle, nil)
+    else
+      state
     end
   end
 end

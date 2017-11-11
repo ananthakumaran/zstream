@@ -40,6 +40,31 @@ defmodule ZstreamTest do
     assert_memory()
   end
 
+  defmodule MockCoder do
+    @behaviour Zstream.Coder
+    def init(_opts), do: nil
+    def encode(chunk, nil), do: {chunk, nil}
+    def close(nil) do
+      send(self(), :closed)
+      []
+    end
+    def compression_method, do: 0
+  end
+
+
+  test "resource handling" do
+    stream = Stream.unfold(5, fn i -> {to_string(100/i), i - 1} end)
+    try do
+      [Zstream.entry("numbers", stream, coder: MockCoder)]
+      |> Zstream.create()
+      |> Stream.run()
+    rescue
+      ArithmeticError -> :ok
+    end
+
+    assert_received :closed
+  end
+
   defp verify(entries) do
     compressed = Zstream.create(entries)
     |> as_binary
