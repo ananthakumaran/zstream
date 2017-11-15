@@ -118,7 +118,10 @@ defmodule Zstream do
     state = update_in(state.current.crc, &(:zlib.crc32(state.zlib_handle, &1, chunk)))
     state = update_in(state.current.size, &(&1 + IO.iodata_length(chunk)))
     state = update_in(state.offset, &(&1 + c_size))
-    {[compressed], state}
+    case compressed do
+      [] -> {[], state}
+      _ -> {[compressed], state}
+    end
   end
 
   defp close_entry(state) do
