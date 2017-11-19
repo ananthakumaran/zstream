@@ -5,7 +5,7 @@ defmodule Zstream do
   ## Example
 
   ```
-  Zstream.create([
+  Zstream.zip([
     Zstream.entry("report.csv", Stream.map(records, &CSV.dump/1)),
     Zstream.entry("catfilm.mp4", File.stream!("/catfilm.mp4"), coder: Zstream.Coder.Stored)
   ])
@@ -64,8 +64,8 @@ defmodule Zstream do
 
   entries are consumed one by one in the given order
   """
-  @spec create([entry]) :: Enumerable.t
-  def create(entries) do
+  @spec zip([entry]) :: Enumerable.t
+  def zip(entries) do
     Stream.concat([
       [{:start}],
       Stream.flat_map(entries, fn %{stream: stream, name: name, options: options} ->

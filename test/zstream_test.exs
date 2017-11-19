@@ -33,7 +33,7 @@ defmodule ZstreamTest do
     big_file = Stream.repeatedly(&random_bytes/0) |> Stream.take(200)
 
     assert_memory()
-    Zstream.create([
+    Zstream.zip([
       Zstream.entry("big_file", big_file),
       Zstream.entry("big_file_2", big_file, coder: Zstream.Coder.Stored)
     ]) |> Stream.run
@@ -56,7 +56,7 @@ defmodule ZstreamTest do
     stream = Stream.unfold(5, fn i -> {to_string(100/i), i - 1} end)
     try do
       [Zstream.entry("numbers", stream, coder: MockCoder)]
-      |> Zstream.create()
+      |> Zstream.zip()
       |> Stream.run()
     rescue
       ArithmeticError -> :ok
@@ -66,7 +66,7 @@ defmodule ZstreamTest do
   end
 
   defp verify(entries) do
-    compressed = Zstream.create(entries)
+    compressed = Zstream.zip(entries)
     |> as_binary
 
     {:ok, decoded_entries} = :zip.unzip(compressed, [:memory, :verbose])
@@ -88,7 +88,7 @@ defmodule ZstreamTest do
   defp verify_using_os_binary(entries) do
     Temp.track!
     path = Temp.path!(%{suffix: ".zip"})
-    Zstream.create(entries)
+    Zstream.zip(entries)
     |> Stream.into(File.stream!(path))
     |> Stream.run
 

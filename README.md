@@ -10,7 +10,7 @@ memory overhead
 ## Example
 
 ```elixir
-Zstream.create([
+Zstream.zip([
   Zstream.entry("report.csv", Stream.map(records, &CSV.dump/1)),
   Zstream.entry("catfilm.mp4", File.stream!("/catfilm.mp4"), coder: Zstream.Coder.Stored)
 ])
