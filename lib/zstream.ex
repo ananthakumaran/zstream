@@ -13,6 +13,7 @@ defmodule Zstream do
   |> Stream.run
   ```
   """
+
   alias Zstream.Protocol
 
   defmodule State do
@@ -45,8 +46,8 @@ defmodule Zstream do
   @doc """
   Creates a ZIP file entry with the given `name`
 
-  The `enum` could be either lazy `Stream` or `List`. The elements in `enum`
-  should be of type `iodata`
+  The `enum` could be either lazy `Stream` or `List`. The elements in
+  `enum` should be of type `iodata`
 
   ## Options
 
@@ -59,7 +60,8 @@ defmodule Zstream do
 
      Defaults to `Zstream.Coder.Deflate`
 
-  * `:mtime` (DateTime) - File last modication time. Defaults to system local time.
+  * `:mtime` (DateTime) - File last modication time. Defaults to system
+    local time.
   """
   @spec entry(String.t(), Enumerable.t(), Keyword.t()) :: entry
   def entry(name, enum, options \\ []) do
@@ -108,7 +110,7 @@ defmodule Zstream do
     central_directory_headers = Enum.map(state.entries, &Protocol.central_directory_header/1)
 
     central_directory_end =
-      Protocol.central_directory_end(
+      Protocol.end_of_central_directory(
         state.offset,
         IO.iodata_length(central_directory_headers),
         length(state.entries)
@@ -126,7 +128,7 @@ defmodule Zstream do
     state = put_in(state.current.options, header.options)
     state = put_in(state.current.crc, :zlib.crc32(state.zlib_handle, <<>>))
     state = put_in(state.current.local_file_header_offset, state.offset)
-    local_file_header = Protocol.local_file_header(header.name, header.options)
+    local_file_header = Protocol.local_file_header(state.current)
     state = update_in(state.offset, &(&1 + IO.iodata_length(local_file_header)))
     {[[compressed, local_file_header]], state}
   end

@@ -10,7 +10,7 @@ defmodule ZstreamTest do
     ])
 
     verify([
-      Zstream.entry("कफ़न", file("kafan.txt")),
+      Zstream.entry("कफ़न", file("kafan.txt"))
     ])
 
     verify([
@@ -21,7 +21,9 @@ defmodule ZstreamTest do
     verify([
       Zstream.entry("moby.txt", file("moby_dick.txt"), coder: Zstream.Coder.Stored),
       Zstream.entry("deep/moby.txt", file("moby_dick.txt"), coder: Zstream.Coder.Stored),
-      Zstream.entry("deep/deep/deep/deep/moby.txt", file("moby_dick.txt"), coder: Zstream.Coder.Stored)
+      Zstream.entry("deep/deep/deep/deep/moby.txt", file("moby_dick.txt"),
+        coder: Zstream.Coder.Stored
+      )
     ])
 
     verify([
@@ -33,10 +35,13 @@ defmodule ZstreamTest do
     big_file = Stream.repeatedly(&random_bytes/0) |> Stream.take(200)
 
     assert_memory()
+
     Zstream.zip([
       Zstream.entry("big_file", big_file),
       Zstream.entry("big_file_2", big_file, coder: Zstream.Coder.Stored)
-    ]) |> Stream.run
+    ])
+    |> Stream.run()
+
     assert_memory()
   end
 
@@ -44,16 +49,18 @@ defmodule ZstreamTest do
     @behaviour Zstream.Coder
     def init(_opts), do: nil
     def encode(chunk, nil), do: {chunk, nil}
+
     def close(nil) do
       send(self(), :closed)
       []
     end
+
     def compression_method, do: 0
   end
 
-
   test "resource handling" do
-    stream = Stream.unfold(5, fn i -> {to_string(100/i), i - 1} end)
+    stream = Stream.unfold(5, fn i -> {to_string(100 / i), i - 1} end)
+
     try do
       [Zstream.entry("numbers", stream, coder: MockCoder)]
       |> Zstream.zip()
@@ -66,14 +73,14 @@ defmodule ZstreamTest do
   end
 
   defp verify(entries) do
-    compressed = Zstream.zip(entries)
-    |> as_binary
+    compressed =
+      Zstream.zip(entries)
+      |> as_binary
 
-    {:ok, decoded_entries} = :zip.unzip(compressed, [:memory, :verbose])
+    {:ok, decoded_entries} = unzip(compressed)
     entries = Enum.reject(entries, fn e -> String.ends_with?(e.name, "/") end)
-
     assert length(entries) == length(decoded_entries)
-    entries = Enum.sort_by(entries, &(&1.name))
+    entries = Enum.sort_by(entries, & &1.name)
     decoded_entries = Enum.sort_by(decoded_entries, fn {name, _} -> IO.iodata_to_binary(name) end)
 
     Enum.zip(entries, decoded_entries)
@@ -86,11 +93,12 @@ defmodule ZstreamTest do
   end
 
   defp verify_using_os_binary(entries) do
-    Temp.track!
+    Temp.track!()
     path = Temp.path!(%{suffix: ".zip"})
+
     Zstream.zip(entries)
     |> Stream.into(File.stream!(path))
-    |> Stream.run
+    |> Stream.run()
 
     {response, exit_code} = System.cmd("unzip", ["-t", path])
     Logger.debug(response)
@@ -105,8 +113,8 @@ defmodule ZstreamTest do
 
   defp as_binary(stream) do
     stream
-    |> Enum.to_list
-    |> IO.iodata_to_binary
+    |> Enum.to_list()
+    |> IO.iodata_to_binary()
   end
 
   defp file(name) do
@@ -119,7 +127,44 @@ defmodule ZstreamTest do
 
   def assert_memory do
     total = (:erlang.memory() |> Keyword.fetch!(:total)) / (1024 * 1024)
-    Logger.debug "Total memory: #{total}"
+    Logger.debug("Total memory: #{total}")
     assert total < 150
+  end
+
+  defp unzip(compressed) do
+    case :zip.unzip(compressed, [:memory, :verbose]) do
+      {:ok, _} = r -> r
+      # :zip can't handle Zip64, so fallback to system unzip in case that's
+      # the problem.
+      {:error, _} -> system_unzip(compressed)
+    end
+  end
+
+  defp system_unzip(compressed) do
+    with {tmp, _} <- System.cmd("mktemp", []),
+         :ok <- File.write(tmp, compressed),
+         {"Archive:  " <> out, _} = System.cmd("unzip", ["-c", tmp]) do
+      [_header | lines] =
+        out
+        |> String.replace_suffix("\n\n", "\n")
+        |> String.split(["extracting: ", "inflating: "])
+
+      entries =
+        lines
+        |> Enum.map(fn file_output ->
+          [name, contents] = String.split(file_output, "\n", parts: 2)
+
+          # Do some ugly newline mangling to account for reading from
+          # unzip stdout.
+          contents =
+            contents
+            |> String.replace(~r/\n  \z/, "")
+            |> String.replace(~r/\n\n \z/, "\n")
+
+          {name |> String.trim(), contents}
+        end)
+
+      {:ok, entries}
+    end
   end
 end

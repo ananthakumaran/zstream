@@ -1,10 +1,21 @@
 language: elixir
 
+env:
+  - ZSTREAM_FORCE_ZIP_64=true
+  - ZSTREAM_FORCE_ZIP_64=
+otp_release:
+  - 19.1
+  - 20.0
+elixir:
+  - 1.4.5
+  - 1.5.2
+
 matrix:
-  include:
-    - otp_release: 19.1
-      elixir: 1.4.5
+  exclude:
     - otp_release: 20.0
+      elixir: 1.4.5
+    - otp_release: 19.1
       elixir: 1.5.2
+
 script:
   - mix test --trace
