@@ -18,9 +18,20 @@ defmodule Zstream do
   defmodule State do
     @moduledoc false
 
-    @entry_initial_state %{local_file_header_offset: nil, crc: nil, c_size: 0, size: 0, options: []}
+    @entry_initial_state %{
+      local_file_header_offset: nil,
+      crc: nil,
+      c_size: 0,
+      size: 0,
+      options: []
+    }
 
-    defstruct zlib_handle: nil, entries: [], offset: 0, current: @entry_initial_state, coder: nil, coder_state: nil
+    defstruct zlib_handle: nil,
+              entries: [],
+              offset: 0,
+              current: @entry_initial_state,
+              coder: nil,
+              coder_state: nil
 
     def entry_initial_state do
       @entry_initial_state
@@ -50,12 +61,15 @@ defmodule Zstream do
 
   * `:mtime` (DateTime) - File last modication time. Defaults to system local time.
   """
-  @spec entry(String.t, Enumerable.t, Keyword.t) :: entry
+  @spec entry(String.t(), Enumerable.t(), Keyword.t()) :: entry
   def entry(name, enum, options \\ []) do
-    local_time = :calendar.local_time() |> NaiveDateTime.from_erl!
-    options = Keyword.merge(@default, [mtime: local_time])
-    |> Keyword.merge(options)
-    |> update_in([:coder], &normalize_coder/1)
+    local_time = :calendar.local_time() |> NaiveDateTime.from_erl!()
+
+    options =
+      Keyword.merge(@default, mtime: local_time)
+      |> Keyword.merge(options)
+      |> update_in([:coder], &normalize_coder/1)
+
     %{name: name, stream: enum, options: options}
   end
 
@@ -64,7 +78,7 @@ defmodule Zstream do
 
   entries are consumed one by one in the given order
   """
-  @spec zip([entry]) :: Enumerable.t
+  @spec zip([entry]) :: Enumerable.t()
   def zip(entries) do
     Stream.concat([
       [{:start}],
@@ -92,7 +106,14 @@ defmodule Zstream do
     :ok = :zlib.close(state.zlib_handle)
     state = put_in(state.zlib_handle, nil)
     central_directory_headers = Enum.map(state.entries, &Protocol.central_directory_header/1)
-    central_directory_end = Protocol.central_directory_end(state.offset, IO.iodata_length(central_directory_headers), length(state.entries))
+
+    central_directory_end =
+      Protocol.central_directory_end(
+        state.offset,
+        IO.iodata_length(central_directory_headers),
+        length(state.entries)
+      )
+
     {[compressed, central_directory_headers, central_directory_end], state}
   end
 
@@ -101,7 +122,7 @@ defmodule Zstream do
     {coder, coder_opts} = Keyword.fetch!(header.options, :coder)
     state = put_in(state.coder, coder)
     state = put_in(state.coder_state, state.coder.init(coder_opts))
-    state = update_in(state.current, &(Map.merge(&1, header)))
+    state = update_in(state.current, &Map.merge(&1, header))
     state = put_in(state.current.options, header.options)
     state = put_in(state.current.crc, :zlib.crc32(state.zlib_handle, <<>>))
     state = put_in(state.current.local_file_header_offset, state.offset)
@@ -115,9 +136,10 @@ defmodule Zstream do
     c_size = IO.iodata_length(compressed)
     state = put_in(state.coder_state, coder_state)
     state = update_in(state.current.c_size, &(&1 + c_size))
-    state = update_in(state.current.crc, &(:zlib.crc32(state.zlib_handle, &1, chunk)))
+    state = update_in(state.current.crc, &:zlib.crc32(state.zlib_handle, &1, chunk))
     state = update_in(state.current.size, &(&1 + IO.iodata_length(chunk)))
     state = update_in(state.offset, &(&1 + c_size))
+
     case compressed do
       [] -> {[], state}
       _ -> {[compressed], state}
@@ -132,9 +154,12 @@ defmodule Zstream do
       state = put_in(state.coder_state, nil)
       state = update_in(state.offset, &(&1 + c_size))
       state = update_in(state.current.c_size, &(&1 + c_size))
-      data_descriptor = Protocol.data_descriptor(state.current.crc, state.current.c_size, state.current.size)
+
+      data_descriptor =
+        Protocol.data_descriptor(state.current.crc, state.current.c_size, state.current.size)
+
       state = update_in(state.offset, &(&1 + IO.iodata_length(data_descriptor)))
-      state = update_in(state.entries, &([state.current|&1]))
+      state = update_in(state.entries, &[state.current | &1])
       state = put_in(state.current, State.entry_initial_state())
       {[compressed, data_descriptor], state}
     else
@@ -143,13 +168,14 @@ defmodule Zstream do
   end
 
   defp free_resource(state) do
-    state = if state.coder do
-      _compressed = state.coder.close(state.coder_state)
-      state = put_in(state.coder, nil)
-      put_in(state.coder_state, nil)
-    else
-      state
-    end
+    state =
+      if state.coder do
+        _compressed = state.coder.close(state.coder_state)
+        state = put_in(state.coder, nil)
+        put_in(state.coder_state, nil)
+      else
+        state
+      end
 
     if state.zlib_handle do
       :ok = :zlib.close(state.zlib_handle)
