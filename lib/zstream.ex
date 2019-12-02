@@ -31,7 +31,9 @@ defmodule Zstream do
               offset: 0,
               current: @entry_initial_state,
               coder: nil,
-              coder_state: nil
+              coder_state: nil,
+              encryption_coder: nil,
+              encryption_coder_state: nil
 
     def entry_initial_state do
       @entry_initial_state
@@ -40,7 +42,10 @@ defmodule Zstream do
 
   @opaque entry :: map
 
-  @default [coder: {Zstream.Coder.Deflate, []}]
+  @default [
+    coder: {Zstream.Coder.Deflate, []},
+    encryption_coder: {Zstream.EncryptionCoder.None, []}
+  ]
 
   @doc """
   Creates a ZIP file entry with the given `name`
@@ -59,6 +64,19 @@ defmodule Zstream do
 
      Defaults to `Zstream.Coder.Deflate`
 
+  * `:encryption_coder` ({module, keyword}) - The encryption module that should be
+    used to encrypt the data. Available options are
+
+    `Zstream.EncryptionCoder.Traditional` - use tranditional zip
+    encryption scheme. `:password` key should be present in the
+    options. Example `{Zstream.EncryptionCoder.Traditional, password:
+    "secret"}`
+
+    `Zstream.EncryptionCoder.None` - no encryption
+
+     Defaults to `Zstream.EncryptionCoder.None`
+
+
   * `:mtime` (DateTime) - File last modication time. Defaults to system local time.
   """
   @spec entry(String.t(), Enumerable.t(), Keyword.t()) :: entry
@@ -69,6 +87,7 @@ defmodule Zstream do
       Keyword.merge(@default, mtime: local_time)
       |> Keyword.merge(options)
       |> update_in([:coder], &normalize_coder/1)
+      |> update_in([:encryption_coder], &normalize_coder/1)
 
     %{name: name, stream: enum, options: options}
   end
@@ -122,6 +141,16 @@ defmodule Zstream do
     {coder, coder_opts} = Keyword.fetch!(header.options, :coder)
     state = put_in(state.coder, coder)
     state = put_in(state.coder_state, state.coder.init(coder_opts))
+    {encryption_coder, encryption_coder_opts} = Keyword.fetch!(header.options, :encryption_coder)
+
+    encryption_coder_opts =
+      Keyword.put(encryption_coder_opts, :mtime, Keyword.fetch!(header.options, :mtime))
+
+    state = put_in(state.encryption_coder, encryption_coder)
+
+    state =
+      put_in(state.encryption_coder_state, state.encryption_coder.init(encryption_coder_opts))
+
     state = update_in(state.current, &Map.merge(&1, header))
     state = put_in(state.current.options, header.options)
     state = put_in(state.current.crc, :zlib.crc32(state.zlib_handle, <<>>))
@@ -133,25 +162,36 @@ defmodule Zstream do
 
   defp construct(chunk, state) do
     {compressed, coder_state} = state.coder.encode(chunk, state.coder_state)
-    c_size = IO.iodata_length(compressed)
+
+    {encrypted, encryption_coder_state} =
+      state.encryption_coder.encode(compressed, state.encryption_coder_state)
+
+    c_size = IO.iodata_length(encrypted)
     state = put_in(state.coder_state, coder_state)
+    state = put_in(state.encryption_coder_state, encryption_coder_state)
     state = update_in(state.current.c_size, &(&1 + c_size))
     state = update_in(state.current.crc, &:zlib.crc32(state.zlib_handle, &1, chunk))
     state = update_in(state.current.size, &(&1 + IO.iodata_length(chunk)))
     state = update_in(state.offset, &(&1 + c_size))
 
-    case compressed do
+    case encrypted do
       [] -> {[], state}
-      _ -> {[compressed], state}
+      _ -> {[encrypted], state}
     end
   end
 
   defp close_entry(state) do
     if state.coder do
-      compressed = state.coder.close(state.coder_state)
-      c_size = IO.iodata_length(compressed)
+      {encrypted, encryption_coder_state} =
+        state.coder.close(state.coder_state)
+        |> state.encryption_coder.encode(state.encryption_coder_state)
+
+      encrypted = [encrypted, state.encryption_coder.close(state.encryption_coder_state)]
+      c_size = IO.iodata_length(encrypted)
       state = put_in(state.coder, nil)
       state = put_in(state.coder_state, nil)
+      state = put_in(state.encryption_coder, nil)
+      state = put_in(state.encryption_coder_state, nil)
       state = update_in(state.offset, &(&1 + c_size))
       state = update_in(state.current.c_size, &(&1 + c_size))
 
@@ -161,7 +201,7 @@ defmodule Zstream do
       state = update_in(state.offset, &(&1 + IO.iodata_length(data_descriptor)))
       state = update_in(state.entries, &[state.current | &1])
       state = put_in(state.current, State.entry_initial_state())
-      {[compressed, data_descriptor], state}
+      {[encrypted, data_descriptor], state}
     else
       {[], state}
     end
@@ -173,6 +213,9 @@ defmodule Zstream do
         _compressed = state.coder.close(state.coder_state)
         state = put_in(state.coder, nil)
         put_in(state.coder_state, nil)
+        _encrypted = state.encryption_coder.close(state.encryption_coder_state)
+        state = put_in(state.encryption_coder, nil)
+        put_in(state.encryption_coder_state, nil)
       else
         state
       end

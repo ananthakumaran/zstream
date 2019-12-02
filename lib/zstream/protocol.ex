@@ -14,7 +14,7 @@ defmodule Zstream.Protocol do
       <<0x04034B50::little-size(32)>>,
       # version needed to extract
       <<20::little-size(16)>>,
-      general_purpose_bit_flag(),
+      general_purpose_bit_flag(options),
       # compression method
       <<compression_method(options)::little-size(16)>>,
       # last mod file time
@@ -53,7 +53,7 @@ defmodule Zstream.Protocol do
       <<52::little-size(16)>>,
       # version needed to extract
       <<20::little-size(16)>>,
-      general_purpose_bit_flag(),
+      general_purpose_bit_flag(entry.options),
       # compression method
       <<compression_method(entry.options)::little-size(16)>>,
       # last mod file time
@@ -105,10 +105,13 @@ defmodule Zstream.Protocol do
     ]
   end
 
-  defp general_purpose_bit_flag do
+  defp general_purpose_bit_flag(options) do
+    {encryption_coder, _opts} = Keyword.fetch!(options, :encryption_coder)
+
+    # encryption bit set based on coder
     # bit 3 use data descriptor
     # bit 11 UTF-8 encoding of filename & comment fields
-    <<0x0008 ||| 0x0800::little-size(16)>>
+    <<encryption_coder.general_purpose_flag() ||| 0x0008 ||| 0x0800::little-size(16)>>
   end
 
   defp external_file_attributes do

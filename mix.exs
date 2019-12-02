@@ -8,7 +8,7 @@ defmodule Zstream.Mixfile do
       app: :zstream,
       version: @version,
       elixir: "~> 1.4",
-      start_permanent: Mix.env == :prod,
+      start_permanent: Mix.env() == :prod,
       description: "Streaming zip file writer",
       package: package(),
       docs: docs(),
@@ -29,20 +29,24 @@ defmodule Zstream.Mixfile do
   defp deps do
     [
       {:temp, "~> 0.4", only: :test},
-      {:ex_doc, "~> 0.18", only: :dev},
+      {:ex_doc, "~> 0.19", only: :dev}
     ]
   end
 
   defp package do
-    %{licenses: ["MIT"],
+    %{
+      licenses: ["MIT"],
       links: %{"Github" => "https://github.com/ananthakumaran/zstream"},
-      maintainers: ["ananthakumaran@gmail.com"]}
+      maintainers: ["ananthakumaran@gmail.com"]
+    }
   end
 
   defp docs do
-    [source_url: "https://github.com/ananthakumaran/zstream",
-     source_ref: "v#{@version}",
-     main: Zstream,
-     extras: ["README.md"]]
+    [
+      source_url: "https://github.com/ananthakumaran/zstream",
+      source_ref: "v#{@version}",
+      main: Zstream,
+      extras: ["README.md"]
+    ]
   end
 end
