@@ -28,7 +28,7 @@ defmodule Zstream.EncryptionCoder.Traditional do
         {chunk, state}
       end
 
-    {chunk, state} = encrypt(state, IO.iodata_to_binary(chunk))
+    encrypt(state, IO.iodata_to_binary(chunk))
   end
 
   def close(_state) do
@@ -53,7 +53,7 @@ defmodule Zstream.EncryptionCoder.Traditional do
   defp update_keys(state, <<>>), do: state
 
   defp update_keys(state, <<char::binary-size(1)>> <> rest) do
-    state = put_in(state.key0, flip(:erlang.crc32(flip(state.key0), char)))
+    state = put_in(state.key0, crc32(state.key0, char))
 
     state =
       put_in(
@@ -64,14 +64,14 @@ defmodule Zstream.EncryptionCoder.Traditional do
     state =
       put_in(
         state.key2,
-        flip(:erlang.crc32(flip(state.key2), <<state.key1 >>> 24::integer-size(8)>>))
+        crc32(state.key2, <<state.key1 >>> 24::integer-size(8)>>)
       )
 
     update_keys(state, rest)
   end
 
-  defp flip(x) do
-    ~~~x &&& 0xFFFFFFFF
+  defp crc32(current, data) do
+    :erlang.crc32(current ^^^ 0xFFFFFFFF, data) ^^^ 0xFFFFFFFF
   end
 
   defp dos_time(t) do

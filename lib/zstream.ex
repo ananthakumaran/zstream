@@ -182,7 +182,7 @@ defmodule Zstream do
 
   defp close_entry(state) do
     if state.coder do
-      {encrypted, encryption_coder_state} =
+      {encrypted, _encryption_coder_state} =
         state.coder.close(state.coder_state)
         |> state.encryption_coder.encode(state.encryption_coder_state)
 
