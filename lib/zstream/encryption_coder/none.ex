@@ -1,4 +1,8 @@
 defmodule Zstream.EncryptionCoder.None do
+  @behaviour Zstream.EncryptionCoder
+  @moduledoc """
+  Noop encryption
+  """
   def init(_opts) do
     nil
   end

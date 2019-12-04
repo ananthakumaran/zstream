@@ -1,7 +1,13 @@
 defmodule Zstream.EncryptionCoder.Traditional do
+  @behaviour Zstream.EncryptionCoder
+  @moduledoc """
+  Implements the trandition encryption
+  """
   use Bitwise
 
   defmodule State do
+    @moduledoc false
+
     defstruct key0: 0x12345678,
               key1: 0x23456789,
               key2: 0x34567890,
