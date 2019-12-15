@@ -59,4 +59,6 @@ defmodule Zstream do
   @spec zip([entry]) :: Enumerable.t()
 
   defdelegate zip(entries), to: Zstream.Zip
+
+  defdelegate unzip(stream, options \\ []), to: Zstream.Unzip
 end
