@@ -36,6 +36,13 @@ defmodule ZstreamTest do
     verify_unzip("compressed-standard")
   end
 
+  test "unsupported unzip" do
+    verify_unzip_error(
+      "compressed-OSX-Finder",
+      "Zip files with data descriptor record are not supported"
+    )
+  end
+
   test "password" do
     password = Base.encode64(:crypto.strong_rand_bytes(12))
 
@@ -210,7 +217,8 @@ defmodule ZstreamTest do
     |> Enum.reduce(
       %{buffer: "", file_name: nil},
       fn
-        %Zstream.Unzip.LocalHeader{file_name: file_name}, state ->
+        %Zstream.Unzip.LocalHeader{file_name: file_name} = header, state ->
+          IO.inspect(header)
           state = put_in(state.file_name, file_name)
           put_in(state.buffer, "")
 
@@ -221,6 +229,8 @@ defmodule ZstreamTest do
             expected =
               File.read!(Path.join([__DIR__, "fixture", path, "inflated", state.file_name]))
 
+            IO.inspect({state.file_name, actual})
+
             assert actual == expected
           end
 
@@ -230,6 +240,14 @@ defmodule ZstreamTest do
           put_in(state.buffer, [state.buffer, data])
       end
     )
+  end
+
+  defp verify_unzip_error(path, error) do
+    assert_raise Zstream.Unzip.Error, error, fn ->
+      file(path <> "/archive.zip")
+      |> Zstream.unzip()
+      |> Enum.to_list()
+    end
   end
 
   defp as_binary(stream) do

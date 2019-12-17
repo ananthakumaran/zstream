@@ -1,4 +1,10 @@
 defmodule Zstream.Unzip do
+  defmodule Error do
+    defexception [:message]
+  end
+
+  use Bitwise
+
   defmodule LocalHeader do
     defstruct [
       :version_need_to_extract,
@@ -70,6 +76,10 @@ defmodule Zstream.Unzip do
     case parse_local_header(data) do
       {:ok, local_header, rest} ->
         {decoder, decoder_state} = Zstream.Decoder.init(local_header.compression_method)
+
+        if bit_set?(local_header.general_purpose_bit_flag, 3) do
+          raise Error, "Zip files with data descriptor record are not supported"
+        end
 
         execute_state_machine(rest, %{
           state
@@ -168,5 +178,9 @@ defmodule Zstream.Unzip do
 
   defp parse_local_header(<<0x02014B50::little-size(32), rest::binary>>), do: :done
 
-  defp parse_local_header(_), do: raise(ArgumentError, "Invalid local header")
+  defp parse_local_header(_), do: raise(Error, "Invalid local header")
+
+  defp bit_set?(bits, n) do
+    (bits &&& 1 <<< n) > 0
+  end
 end
