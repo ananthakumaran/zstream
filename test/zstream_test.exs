@@ -31,6 +31,11 @@ defmodule ZstreamTest do
     ])
   end
 
+  test "unzip" do
+    verify_unzip("uncompressed")
+    verify_unzip("compressed-standard")
+  end
+
   test "password" do
     password = Base.encode64(:crypto.strong_rand_bytes(12))
 
@@ -197,6 +202,34 @@ defmodule ZstreamTest do
     assert exit_code == 0
 
     File.rm!(path)
+  end
+
+  defp verify_unzip(path) do
+    file(path <> "/archive.zip")
+    |> Zstream.unzip()
+    |> Enum.reduce(
+      %{buffer: "", file_name: nil},
+      fn
+        %Zstream.Unzip.LocalHeader{file_name: file_name}, state ->
+          state = put_in(state.file_name, file_name)
+          put_in(state.buffer, "")
+
+        :eof, state ->
+          unless String.ends_with?(state.file_name, "/") do
+            actual = IO.iodata_to_binary(state.buffer)
+
+            expected =
+              File.read!(Path.join([__DIR__, "fixture", path, "inflated", state.file_name]))
+
+            assert actual == expected
+          end
+
+          state
+
+        data, state ->
+          put_in(state.buffer, [state.buffer, data])
+      end
+    )
   end
 
   defp as_binary(stream) do

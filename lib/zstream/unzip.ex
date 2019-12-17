@@ -98,8 +98,8 @@ defmodule Zstream.Unzip do
     state = put_in(state.local_header.file_name, file_name)
     state = put_in(state.local_header.extra_field, extra_field)
     state = %{state | buffer: "", next: :file_data}
-    {results, state} = execute_state_machine(rest, state)
-    {[state.local_header | results], state}
+    {results, new_state} = execute_state_machine(rest, state)
+    {[state.local_header | results], new_state}
   end
 
   def file_data(data, state) do
@@ -118,7 +118,7 @@ defmodule Zstream.Unzip do
 
       state = %{state | data_sent: 0, buffer: "", next: :local_file_header}
       {results, state} = execute_state_machine(rest, state)
-      {[file_chunk | results], state}
+      {[file_chunk | [:eof | results]], state}
     end
   end
 
