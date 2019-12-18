@@ -29,7 +29,8 @@ defmodule Zstream.Unzip do
               local_header: nil,
               data_sent: 0,
               decoder: nil,
-              decoder_state: nil
+              decoder_state: nil,
+              crc32: 0
   end
 
   def unzip(stream, _options \\ []) do
@@ -51,6 +52,9 @@ defmodule Zstream.Unzip do
     enough_data? =
       case state.next do
         :local_file_header ->
+          size >= 30
+
+        :next_header ->
           size >= 30
 
         :filename_extra_field ->
@@ -107,7 +111,7 @@ defmodule Zstream.Unzip do
     rest = binary_part(data, start, byte_size(data) - start)
     state = put_in(state.local_header.file_name, file_name)
     state = put_in(state.local_header.extra_field, extra_field)
-    state = %{state | buffer: "", next: :file_data}
+    state = %{state | next: :file_data}
     {results, new_state} = execute_state_machine(rest, state)
     {[state.local_header | results], new_state}
   end
@@ -117,7 +121,7 @@ defmodule Zstream.Unzip do
 
     if size + state.data_sent < state.local_header.compressed_size do
       {data, state} = decode(data, state)
-      {[data], %{state | data_sent: state.data_sent + size, buffer: ""}}
+      {[data], %{state | data_sent: state.data_sent + size}}
     else
       data = IO.iodata_to_binary(data)
       length = state.local_header.compressed_size - state.data_sent
@@ -126,7 +130,7 @@ defmodule Zstream.Unzip do
       start = length
       rest = binary_part(data, start, size - start)
 
-      state = %{state | data_sent: 0, buffer: "", next: :local_file_header}
+      state = %{state | data_sent: 0, next: :next_header}
       {results, state} = execute_state_machine(rest, state)
       {[file_chunk | [:eof | results]], state}
     end
@@ -140,15 +144,33 @@ defmodule Zstream.Unzip do
     decoder = state.decoder
     decoder_state = state.decoder_state
     {data, decoder_state} = decoder.decode(data, decoder_state)
+    crc32 = :erlang.crc32(state.crc32, data)
     state = put_in(state.decoder_state, decoder_state)
+    state = put_in(state.crc32, crc32)
     {data, state}
   end
 
   defp decode_close(data, state) do
     {data, state} = decode(data, state)
-    data = [data, state.decoder.close(state.decoder_state)]
+    extra_data = state.decoder.close(state.decoder_state)
+
+    data =
+      if extra_data not in ["", []] do
+        [data, extra_data]
+      else
+        data
+      end
+
+    data = [data, extra_data]
+    crc32 = :erlang.crc32(state.crc32, extra_data)
+
+    unless crc32 == state.local_header.crc32 do
+      raise Error, "Invalid crc32, expected: #{state.local_header.crc32}, actual: #{crc32}"
+    end
+
     state = put_in(state.decoder, nil)
     state = put_in(state.decoder_state, nil)
+    state = put_in(state.crc32, 0)
     {data, state}
   end
 
@@ -176,9 +198,33 @@ defmodule Zstream.Unzip do
      }, rest}
   end
 
-  defp parse_local_header(<<0x02014B50::little-size(32), rest::binary>>), do: :done
-
   defp parse_local_header(_), do: raise(Error, "Invalid local header")
+
+  def next_header(data, state) do
+    data = IO.iodata_to_binary(data)
+
+    case :binary.match(data, <<0x4B50::little-size(16)>>, scope: {0, 28}) do
+      :nomatch ->
+        raise Error, "Invalid zip file, could not find any signature header"
+
+      {start, 2} ->
+        <<signature::little-size(32), _::binary>> =
+          rest = binary_part(data, start, byte_size(data) - start)
+
+        case signature do
+          0x04034B50 ->
+            execute_state_machine(rest, %{state | next: :local_file_header})
+
+          # archive extra data record
+          0x08064B50 ->
+            {[], %{state | next: :done}}
+
+          # central directory header
+          0x02014B50 ->
+            {[], %{state | next: :done}}
+        end
+    end
+  end
 
   defp bit_set?(bits, n) do
     (bits &&& 1 <<< n) > 0

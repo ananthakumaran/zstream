@@ -34,12 +34,20 @@ defmodule ZstreamTest do
   test "unzip" do
     verify_unzip("uncompressed")
     verify_unzip("compressed-standard")
+    verify_unzip("compressed-flags-set")
+    verify_unzip("trail")
+    verify_unzip("padding")
   end
 
   test "unsupported unzip" do
     verify_unzip_error(
       "compressed-OSX-Finder",
       "Zip files with data descriptor record are not supported"
+    )
+
+    verify_unzip_error(
+      "invalid",
+      "Invalid local header"
     )
   end
 
@@ -217,8 +225,7 @@ defmodule ZstreamTest do
     |> Enum.reduce(
       %{buffer: "", file_name: nil},
       fn
-        %Zstream.Unzip.LocalHeader{file_name: file_name} = header, state ->
-          IO.inspect(header)
+        %Zstream.Unzip.LocalHeader{file_name: file_name} = _header, state ->
           state = put_in(state.file_name, file_name)
           put_in(state.buffer, "")
 
@@ -228,8 +235,6 @@ defmodule ZstreamTest do
 
             expected =
               File.read!(Path.join([__DIR__, "fixture", path, "inflated", state.file_name]))
-
-            IO.inspect({state.file_name, actual})
 
             assert actual == expected
           end
@@ -257,7 +262,7 @@ defmodule ZstreamTest do
   end
 
   defp file(name) do
-    File.stream!(Path.join([__DIR__, "fixture", name]))
+    File.stream!(Path.join([__DIR__, "fixture", name]), [], 100)
   end
 
   def random_bytes() do
