@@ -1,6 +1,6 @@
 defmodule Zstream do
   @moduledoc """
-  Module for creating ZIP file stream
+  Module for reading and writing ZIP file stream
 
   ## Example
 
@@ -87,7 +87,7 @@ defmodule Zstream do
 
   {`:entry`, `t:Zstream.Entry.t/0`} - Indicates a new file entry.
 
-  {`:data`, `t:iodata/0` | `:eof`} - 1 or more data tuples will be emitted for each entry. `:eof` indicates end of data tuples for current entry.
+  {`:data`, `t:iodata/0` | `:eof`} - one or more data tuples will be emitted for each entry. `:eof` indicates end of data tuples for current entry.
 
   ### NOTES
 
