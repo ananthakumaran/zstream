@@ -230,7 +230,7 @@ defmodule ZstreamTest do
           state = put_in(state.file_name, file_name)
           put_in(state.buffer, "")
 
-        :eof, state ->
+        {:data, :eof}, state ->
           unless String.ends_with?(state.file_name, "/") do
             actual = IO.iodata_to_binary(state.buffer)
 

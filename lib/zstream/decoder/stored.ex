@@ -1,8 +1,6 @@
 defmodule Zstream.Decoder.Stored do
+  @moduledoc false
   @behaviour Zstream.Decoder
-  @moduledoc """
-  Implements the Stored(uncompressed) decoder
-  """
 
   def init() do
     nil

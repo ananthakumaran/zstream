@@ -12,10 +12,20 @@ memory overhead
 ```elixir
 Zstream.zip([
   Zstream.entry("report.csv", Stream.map(records, &CSV.dump/1)),
-  Zstream.entry("catfilm.mp4", File.stream!("/catfilm.mp4"), coder: Zstream.Coder.Stored)
+  Zstream.entry("catfilm.mp4", File.stream!("/catfilm.mp4", [], 512), coder: Zstream.Coder.Stored)
 ])
 |> Stream.into(File.stream!("/archive.zip"))
 |> Stream.run
+```
+
+```elixir
+File.stream!("archive.zip", [], 512)
+|> Zstream.unzip()
+|> Enum.reduce(%{}, fn
+  {:entry, %Zstream.Entry{name: file_name} = entry}, state -> state
+  {:data, data}, state -> state
+  {:data, :eof}, state -> state
+end)
 ```
 
 see [documenation](https://hexdocs.pm/zstream/) for more information.

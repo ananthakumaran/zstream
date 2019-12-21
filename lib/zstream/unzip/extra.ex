@@ -1,11 +1,24 @@
 defmodule Zstream.Unzip.Extra do
+  @moduledoc false
   use Bitwise
 
   defmodule Unknown do
+    @type t :: %__MODULE__{
+            signature: String.t(),
+            tsize: integer(),
+            data: iodata()
+          }
+
     defstruct [:signature, :tsize, :data]
   end
 
   defmodule ExtendedTimestamp do
+    @type t :: %__MODULE__{
+            mtime: DateTime.t() | nil,
+            atime: DateTime.t() | nil,
+            ctime: DateTime.t() | nil
+          }
+
     defstruct [:mtime, :atime, :ctime]
   end
 

@@ -7,14 +7,31 @@ defmodule Zstream do
   ```
   Zstream.zip([
     Zstream.entry("report.csv", Stream.map(records, &CSV.dump/1)),
-    Zstream.entry("catfilm.mp4", File.stream!("/catfilm.mp4"), coder: Zstream.Coder.Stored)
+    Zstream.entry("catfilm.mp4", File.stream!("/catfilm.mp4", [], 512), coder: Zstream.Coder.Stored)
   ])
   |> Stream.into(File.stream!("/archive.zip"))
   |> Stream.run
   ```
+
+  ```
+  File.stream!("archive.zip", [], 512)
+  |> Zstream.unzip()
+  |> Enum.reduce(%{}, fn
+    {:entry, %Zstream.Entry{name: file_name} = entry}, state -> state
+    {:data, data}, state -> state
+    {:data, :eof}, state -> state
+  end)
+  ```
   """
 
   defmodule Entry do
+    @type t :: %__MODULE__{
+            name: String.t(),
+            compressed_size: integer(),
+            mtime: NaiveDateTime.t(),
+            size: integer(),
+            extras: list()
+          }
     defstruct [:name, :compressed_size, :mtime, :size, :extras]
   end
 
@@ -63,5 +80,27 @@ defmodule Zstream do
   @spec zip([entry]) :: Enumerable.t()
   defdelegate zip(entries), to: Zstream.Zip
 
-  defdelegate unzip(stream, options \\ []), to: Zstream.Unzip
+  @doc """
+  Unzips file stream
+
+  returns a new stream which emits the following tuples for each zip entry
+
+  {`:entry`, `t:Zstream.Entry.t/0`} - Indicates a new file entry.
+
+  {`:data`, `t:iodata/0` | `:eof`} - 1 or more data tuples will be emitted for each entry. `:eof` indicates end of data tuples for current entry.
+
+  ### NOTES
+
+  Unzip doesn't support all valid zip files. Zip file format allows
+  the writer to write the file size info after the file data, which
+  allows the writer to zip streams with unknown size. But this
+  prevents the reader from unzipping the file in a streaming fashion,
+  because to find the file size one has to go to the end of the
+  stream. Ironcially, if you use Zstream to zip a file, the same file
+  can't be unzipped using Zstream.
+
+  * doesn't support file which uses data descriptor header
+  * doesn't support encrypted file
+  """
+  defdelegate unzip(stream), to: Zstream.Unzip
 end

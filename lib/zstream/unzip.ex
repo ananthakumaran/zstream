@@ -1,4 +1,5 @@
 defmodule Zstream.Unzip do
+  @moduledoc false
   alias Zstream.Entry
 
   defmodule Error do
@@ -8,6 +9,7 @@ defmodule Zstream.Unzip do
   use Bitwise
 
   defmodule LocalHeader do
+    @moduledoc false
     defstruct [
       :version_need_to_extract,
       :general_purpose_bit_flag,
@@ -148,7 +150,7 @@ defmodule Zstream.Unzip do
 
       state = %{state | data_sent: 0, next: :next_header}
       {results, state} = execute_state_machine(rest, state)
-      {[{:data, file_chunk} | [:eof | results]], state}
+      {[{:data, file_chunk} | [{:data, :eof} | results]], state}
     end
   end
 
