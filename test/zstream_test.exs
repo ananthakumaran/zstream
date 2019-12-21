@@ -225,7 +225,8 @@ defmodule ZstreamTest do
     |> Enum.reduce(
       %{buffer: "", file_name: nil},
       fn
-        %Zstream.Unzip.LocalHeader{file_name: file_name} = _header, state ->
+        {:entry, %Zstream.Entry{name: file_name} = entry}, state ->
+          Logger.info(inspect(entry))
           state = put_in(state.file_name, file_name)
           put_in(state.buffer, "")
 
@@ -241,7 +242,7 @@ defmodule ZstreamTest do
 
           state
 
-        data, state ->
+        {:data, data}, state ->
           put_in(state.buffer, [state.buffer, data])
       end
     )

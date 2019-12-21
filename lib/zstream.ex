@@ -14,6 +14,10 @@ defmodule Zstream do
   ```
   """
 
+  defmodule Entry do
+    defstruct [:name, :compressed_size, :mtime, :size, :extras]
+  end
+
   @opaque entry :: map
 
   @doc """
@@ -57,7 +61,6 @@ defmodule Zstream do
   entries are consumed one by one in the given order
   """
   @spec zip([entry]) :: Enumerable.t()
-
   defdelegate zip(entries), to: Zstream.Zip
 
   defdelegate unzip(stream, options \\ []), to: Zstream.Unzip

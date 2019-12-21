@@ -1,4 +1,6 @@
 defmodule Zstream.Unzip do
+  alias Zstream.Entry
+
   defmodule Error do
     defexception [:message]
   end
@@ -112,8 +114,22 @@ defmodule Zstream.Unzip do
     state = put_in(state.local_header.file_name, file_name)
     state = put_in(state.local_header.extra_field, extra_field)
     state = %{state | next: :file_data}
+    local_header = state.local_header
+
+    entry = %Entry{
+      name: local_header.file_name,
+      compressed_size: local_header.compressed_size,
+      size: local_header.uncompressed_size,
+      mtime: dos_time(local_header.last_modified_file_date, local_header.last_modified_file_time),
+      extras: Zstream.Unzip.Extra.parse(extra_field, [])
+    }
+
     {results, new_state} = execute_state_machine(rest, state)
-    {[state.local_header | results], new_state}
+
+    {[
+       {:entry, entry}
+       | results
+     ], new_state}
   end
 
   def file_data(data, state) do
@@ -121,7 +137,7 @@ defmodule Zstream.Unzip do
 
     if size + state.data_sent < state.local_header.compressed_size do
       {data, state} = decode(data, state)
-      {[data], %{state | data_sent: state.data_sent + size}}
+      {[{:data, data}], %{state | data_sent: state.data_sent + size}}
     else
       data = IO.iodata_to_binary(data)
       length = state.local_header.compressed_size - state.data_sent
@@ -132,7 +148,33 @@ defmodule Zstream.Unzip do
 
       state = %{state | data_sent: 0, next: :next_header}
       {results, state} = execute_state_machine(rest, state)
-      {[file_chunk | [:eof | results]], state}
+      {[{:data, file_chunk} | [:eof | results]], state}
+    end
+  end
+
+  def next_header(data, state) do
+    data = IO.iodata_to_binary(data)
+
+    case :binary.match(data, <<0x4B50::little-size(16)>>, scope: {0, 28}) do
+      :nomatch ->
+        raise Error, "Invalid zip file, could not find any signature header"
+
+      {start, 2} ->
+        <<signature::little-size(32), _::binary>> =
+          rest = binary_part(data, start, byte_size(data) - start)
+
+        case signature do
+          0x04034B50 ->
+            execute_state_machine(rest, %{state | next: :local_file_header})
+
+          # archive extra data record
+          0x08064B50 ->
+            {[], %{state | next: :done}}
+
+          # central directory header
+          0x02014B50 ->
+            {[], %{state | next: :done}}
+        end
     end
   end
 
@@ -200,33 +242,24 @@ defmodule Zstream.Unzip do
 
   defp parse_local_header(_), do: raise(Error, "Invalid local header")
 
-  def next_header(data, state) do
-    data = IO.iodata_to_binary(data)
-
-    case :binary.match(data, <<0x4B50::little-size(16)>>, scope: {0, 28}) do
-      :nomatch ->
-        raise Error, "Invalid zip file, could not find any signature header"
-
-      {start, 2} ->
-        <<signature::little-size(32), _::binary>> =
-          rest = binary_part(data, start, byte_size(data) - start)
-
-        case signature do
-          0x04034B50 ->
-            execute_state_machine(rest, %{state | next: :local_file_header})
-
-          # archive extra data record
-          0x08064B50 ->
-            {[], %{state | next: :done}}
-
-          # central directory header
-          0x02014B50 ->
-            {[], %{state | next: :done}}
-        end
-    end
-  end
-
   defp bit_set?(bits, n) do
     (bits &&& 1 <<< n) > 0
+  end
+
+  defp dos_time(date, time) do
+    <<year::size(7), month::size(4), day::size(5)>> = <<date::size(16)>>
+    <<hour::size(5), minute::size(6), second::size(5)>> = <<time::size(16)>>
+
+    {:ok, datetime} =
+      NaiveDateTime.new(
+        1980 + year,
+        month,
+        day,
+        hour,
+        minute,
+        second * 2
+      )
+
+    datetime
   end
 end
