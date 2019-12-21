@@ -1,7 +1,7 @@
 defmodule Zstream.Mixfile do
   use Mix.Project
 
-  @version "0.3.1"
+  @version "0.4.0"
 
   def project do
     [
@@ -9,7 +9,7 @@ defmodule Zstream.Mixfile do
       version: @version,
       elixir: "~> 1.4",
       start_permanent: Mix.env() == :prod,
-      description: "Streaming zip file writer",
+      description: "Streaming zip file writer and reader",
       package: package(),
       docs: docs(),
       dialyzer: [
