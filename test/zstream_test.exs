@@ -41,14 +41,35 @@ defmodule ZstreamTest do
 
   test "unsupported unzip" do
     verify_unzip_error(
-      "compressed-OSX-Finder",
+      "compressed-OSX-Finder/archive.zip",
       "Zip files with data descriptor record are not supported"
     )
 
     verify_unzip_error(
-      "invalid",
+      "invalid/archive.zip",
       "Invalid local header"
     )
+
+    verify_unzip_error(
+      "zipbomb/42-password-42.zip",
+      "Unsupported compression method 99"
+    )
+  end
+
+  test "zip bomb" do
+    files = [
+      "zipbomb/zbsm.zip",
+      "zipbomb/42-passwordless.zip",
+      "zipbomb/338.zip",
+      "zipbomb/droste.zip",
+      "zipbomb/zip-bomb.zip"
+    ]
+
+    Enum.each(files, fn path ->
+      file(path)
+      |> Zstream.unzip()
+      |> Stream.run()
+    end)
   end
 
   test "password" do
@@ -250,7 +271,7 @@ defmodule ZstreamTest do
 
   defp verify_unzip_error(path, error) do
     assert_raise Zstream.Unzip.Error, error, fn ->
-      file(path <> "/archive.zip")
+      file(path)
       |> Zstream.unzip()
       |> Enum.to_list()
     end
