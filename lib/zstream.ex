@@ -77,8 +77,8 @@ defmodule Zstream do
 
   entries are consumed one by one in the given order
   """
-  @spec zip([entry]) :: Enumerable.t()
-  defdelegate zip(entries), to: Zstream.Zip
+  @spec zip([entry], Keyword.t()) :: Enumerable.t()
+  defdelegate zip(entries, options \\ []), to: Zstream.Zip
 
   @doc """
   Unzips file stream

@@ -200,13 +200,19 @@ defmodule ZstreamTest do
     end)
 
     verify_using_os_binary(entries)
+    verify_using_os_binary(entries, zip64: true)
   end
 
   defp verify_password(entries, password) do
+    verify_password_with_options(entries, password)
+    verify_password_with_options(entries, password, zip64: true)
+  end
+
+  defp verify_password_with_options(entries, password, options \\ []) do
     Temp.track!()
     path = Temp.path!(%{suffix: ".zip"})
 
-    Zstream.zip(entries)
+    Zstream.zip(entries, options)
     |> Stream.into(File.stream!(path))
     |> Stream.run()
 
@@ -221,19 +227,19 @@ defmodule ZstreamTest do
     File.rm!(path)
   end
 
-  defp verify_using_os_binary(entries) do
+  defp verify_using_os_binary(entries, options \\ []) do
     Temp.track!()
     path = Temp.path!(%{suffix: ".zip"})
 
-    Zstream.zip(entries)
+    Zstream.zip(entries, options)
     |> Stream.into(File.stream!(path))
     |> Stream.run()
 
-    {response, exit_code} = System.cmd("unzip", ["-t", path])
+    {response, exit_code} = System.cmd("zipinfo", [path])
     Logger.debug(response)
     assert exit_code == 0
 
-    {response, exit_code} = System.cmd("zipinfo", [path])
+    {response, exit_code} = System.cmd("unzip", ["-t", path])
     Logger.debug(response)
     assert exit_code == 0
 

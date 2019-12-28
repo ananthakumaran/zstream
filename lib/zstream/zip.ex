@@ -27,12 +27,14 @@ defmodule Zstream.Zip do
     end
   end
 
-
   @default [
     coder: {Zstream.Coder.Deflate, []},
     encryption_coder: {Zstream.EncryptionCoder.None, []}
   ]
 
+  @global_default [
+    zip64: false
+  ]
 
   def entry(name, enum, options \\ []) do
     local_time = :calendar.local_time() |> NaiveDateTime.from_erl!()
@@ -46,16 +48,18 @@ defmodule Zstream.Zip do
     %{name: name, stream: enum, options: options}
   end
 
-  def zip(entries) do
+  def zip(entries, global_options \\ []) do
+    global_options = Keyword.merge(@global_default, global_options)
+
     Stream.concat([
       [{:start}],
       Stream.flat_map(entries, fn %{stream: stream, name: name, options: options} ->
         Stream.concat(
-          [{:head, %{name: name, options: options}}],
+          [{:head, %{name: name, options: Keyword.merge(options, global_options)}}],
           stream
         )
       end),
-      [{:end}]
+      [{:end, global_options}]
     ])
     |> Stream.transform(fn -> %State{} end, &construct/2, &free_resource/1)
   end
@@ -68,20 +72,41 @@ defmodule Zstream.Zip do
     {[], state}
   end
 
-  defp construct({:end}, state) do
+  defp construct({:end, global_options}, state) do
     {compressed, state} = close_entry(state)
     :ok = :zlib.close(state.zlib_handle)
     state = put_in(state.zlib_handle, nil)
     central_directory_headers = Enum.map(state.entries, &Protocol.central_directory_header/1)
 
-    central_directory_end =
-      Protocol.central_directory_end(
+    zip64_end_of_central_directory_record =
+      Protocol.zip64_end_of_central_directory_record(
         state.offset,
         IO.iodata_length(central_directory_headers),
-        length(state.entries)
+        length(state.entries),
+        global_options
       )
 
-    {[compressed, central_directory_headers, central_directory_end], state}
+    zip64_end_of_central_directory_locator =
+      Protocol.zip64_end_of_central_directory_locator(
+        state.offset + IO.iodata_length(central_directory_headers),
+        global_options
+      )
+
+    end_of_central_directory =
+      Protocol.end_of_central_directory(
+        state.offset,
+        IO.iodata_length(central_directory_headers),
+        length(state.entries),
+        global_options
+      )
+
+    {[
+       compressed,
+       central_directory_headers,
+       zip64_end_of_central_directory_record,
+       zip64_end_of_central_directory_locator,
+       end_of_central_directory
+     ], state}
   end
 
   defp construct({:head, header}, state) do
@@ -103,7 +128,14 @@ defmodule Zstream.Zip do
     state = put_in(state.current.options, header.options)
     state = put_in(state.current.crc, :zlib.crc32(state.zlib_handle, <<>>))
     state = put_in(state.current.local_file_header_offset, state.offset)
-    local_file_header = Protocol.local_file_header(header.name, header.options)
+
+    local_file_header =
+      Protocol.local_file_header(
+        header.name,
+        state.current.local_file_header_offset,
+        header.options
+      )
+
     state = update_in(state.offset, &(&1 + IO.iodata_length(local_file_header)))
     {[[compressed, local_file_header]], state}
   end
@@ -144,7 +176,12 @@ defmodule Zstream.Zip do
       state = update_in(state.current.c_size, &(&1 + c_size))
 
       data_descriptor =
-        Protocol.data_descriptor(state.current.crc, state.current.c_size, state.current.size)
+        Protocol.data_descriptor(
+          state.current.crc,
+          state.current.c_size,
+          state.current.size,
+          state.current.options
+        )
 
       state = update_in(state.offset, &(&1 + IO.iodata_length(data_descriptor)))
       state = update_in(state.entries, &[state.current | &1])
