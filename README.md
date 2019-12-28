@@ -34,6 +34,7 @@ end)
 
 * compression (deflate, stored)
 * encryption (traditional)
+* zip64
 
 ### unzip
 

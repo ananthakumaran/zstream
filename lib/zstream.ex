@@ -76,6 +76,12 @@ defmodule Zstream do
   Creates a ZIP file stream
 
   entries are consumed one by one in the given order
+
+  ## Options
+
+  * `:zip64` (boolean) - If set to `true` zip64 format is used. Zip64
+    can support files more than 4 GB in size, but not all the unzip
+    programs support this format. Defaults to `false`
   """
   @spec zip([entry], Keyword.t()) :: Enumerable.t()
   defdelegate zip(entries, options \\ []), to: Zstream.Zip
