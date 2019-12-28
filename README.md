@@ -28,4 +28,15 @@ File.stream!("archive.zip", [], 512)
 end)
 ```
 
+## Features
+
+### zip
+
+* compression (deflate, stored)
+* encryption (traditional)
+
+### unzip
+
+* compression (deflate, stored)
+
 see [documenation](https://hexdocs.pm/zstream/) for more information.
