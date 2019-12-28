@@ -1,6 +1,7 @@
 defmodule Zstream.Unzip do
   @moduledoc false
   alias Zstream.Entry
+  alias Zstream.Unzip.Extra
 
   defmodule Error do
     defexception [:message]
@@ -34,15 +35,25 @@ defmodule Zstream.Unzip do
               data_sent: 0,
               decoder: nil,
               decoder_state: nil,
-              crc32: 0
+              crc32: 0,
+              uncompressed_size: 0
   end
 
   def unzip(stream, _options \\ []) do
-    Stream.transform(stream, %State{}, &execute_state_machine/2)
+    Stream.concat([stream, [:eof]])
+    |> Stream.transform(%State{}, &execute_state_machine/2)
   end
 
   # Specification is available at
   # https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+  defp execute_state_machine(:eof, state) do
+    if state.next == :done do
+      {[], state}
+    else
+      raise Error, "Unexpected end of input"
+    end
+  end
+
   defp execute_state_machine(data, state) do
     data =
       if state.buffer not in ["", []] do
@@ -123,8 +134,32 @@ defmodule Zstream.Unzip do
       compressed_size: local_header.compressed_size,
       size: local_header.uncompressed_size,
       mtime: dos_time(local_header.last_modified_file_date, local_header.last_modified_file_time),
-      extras: Zstream.Unzip.Extra.parse(extra_field, [])
+      extras: Extra.parse(extra_field, [])
     }
+
+    zip64_extended_information =
+      Enum.find(entry.extras, &match?(%Extra.Zip64ExtendedInformation{}, &1))
+
+    entry =
+      if zip64_extended_information do
+        %{
+          entry
+          | size: zip64_extended_information.size,
+            compressed_size: zip64_extended_information.compressed_size
+        }
+      else
+        entry
+      end
+
+    state =
+      if zip64_extended_information do
+        state =
+          put_in(state.local_header.compressed_size, zip64_extended_information.compressed_size)
+
+        put_in(state.local_header.uncompressed_size, zip64_extended_information.size)
+      else
+        state
+      end
 
     {results, new_state} = execute_state_machine(rest, state)
 
@@ -191,6 +226,7 @@ defmodule Zstream.Unzip do
     crc32 = :erlang.crc32(state.crc32, data)
     state = put_in(state.decoder_state, decoder_state)
     state = put_in(state.crc32, crc32)
+    state = update_in(state.uncompressed_size, &(&1 + IO.iodata_length(data)))
     {data, state}
   end
 
@@ -207,14 +243,23 @@ defmodule Zstream.Unzip do
 
     data = [data, extra_data]
     crc32 = :erlang.crc32(state.crc32, extra_data)
+    uncompressed_size = state.uncompressed_size + IO.iodata_length(extra_data)
 
     unless crc32 == state.local_header.crc32 do
       raise Error, "Invalid crc32, expected: #{state.local_header.crc32}, actual: #{crc32}"
     end
 
+    unless uncompressed_size == state.local_header.uncompressed_size do
+      raise Error,
+            "Invalid size, expected: #{state.local_header.uncompressed_size}, actual: #{
+              uncompressed_size
+            }"
+    end
+
     state = put_in(state.decoder, nil)
     state = put_in(state.decoder_state, nil)
     state = put_in(state.crc32, 0)
+    state = put_in(state.uncompressed_size, 0)
     {data, state}
   end
 

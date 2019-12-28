@@ -37,6 +37,9 @@ defmodule ZstreamTest do
     verify_unzip("compressed-flags-set")
     verify_unzip("trail")
     verify_unzip("padding")
+    verify_unzip("zip64")
+    verify_unzip("zip64-1")
+    verify_unzip("zip64-2")
   end
 
   test "unsupported unzip" do
@@ -53,6 +56,11 @@ defmodule ZstreamTest do
     verify_unzip_error(
       "zipbomb/42-password-42.zip",
       "Unsupported compression method 99"
+    )
+
+    verify_unzip_error(
+      "zip64-dd/archive.zip",
+      "Zip files with data descriptor record are not supported"
     )
   end
 

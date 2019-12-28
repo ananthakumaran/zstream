@@ -39,5 +39,6 @@ end)
 ### unzip
 
 * compression (deflate, stored)
+* zip64
 
 see [documenation](https://hexdocs.pm/zstream/) for more information.
