@@ -76,7 +76,10 @@ defmodule Zstream.Zip do
     {compressed, state} = close_entry(state)
     :ok = :zlib.close(state.zlib_handle)
     state = put_in(state.zlib_handle, nil)
-    central_directory_headers = Enum.map(state.entries, &Protocol.central_directory_header/1)
+
+    central_directory_headers =
+      Enum.reverse(state.entries)
+      |> Enum.map(&Protocol.central_directory_header/1)
 
     zip64_end_of_central_directory_record =
       Protocol.zip64_end_of_central_directory_record(
