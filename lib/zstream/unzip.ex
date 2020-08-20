@@ -304,7 +304,7 @@ defmodule Zstream.Unzip do
         day,
         hour,
         minute,
-        Integer.mod(second * 2, 60)
+        min(second * 2, 59)
       )
 
     datetime
