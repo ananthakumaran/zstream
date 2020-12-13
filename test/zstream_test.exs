@@ -195,15 +195,26 @@ defmodule ZstreamTest do
       |> as_binary
 
     {:ok, decoded_entries} = :zip.unzip(compressed, [:memory, :verbose])
+
+    decoded_entries =
+      Enum.map(decoded_entries, fn {filename, data} ->
+        if String.to_integer(System.otp_release()) > 22 do
+          {IO.chardata_to_string(filename), data}
+        else
+          {IO.iodata_to_binary(filename), data}
+        end
+      end)
+
     entries = Enum.reject(entries, fn e -> String.ends_with?(e.name, "/") end)
 
     assert length(entries) == length(decoded_entries)
     entries = Enum.sort_by(entries, & &1.name)
-    decoded_entries = Enum.sort_by(decoded_entries, fn {name, _} -> IO.iodata_to_binary(name) end)
+
+    decoded_entries = Enum.sort_by(decoded_entries, fn {name, _} -> name end)
 
     Enum.zip(entries, decoded_entries)
     |> Enum.each(fn {entry, {decoded_filename, decoded_data}} ->
-      assert entry.name == IO.iodata_to_binary(decoded_filename)
+      assert entry.name == decoded_filename
       assert as_binary(entry.stream) == decoded_data
     end)
 
