@@ -1,8 +1,9 @@
 defmodule Zstream.Coder.Stored do
-  @behaviour Zstream.Coder
   @moduledoc """
-  Implements the Stored(uncompressed) coder
+  Implements the Stored(uncompressed) coder.
   """
+
+  @behaviour Zstream.Coder
 
   def init(_opts) do
     nil

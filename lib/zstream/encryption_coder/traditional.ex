@@ -1,8 +1,10 @@
 defmodule Zstream.EncryptionCoder.Traditional do
-  @behaviour Zstream.EncryptionCoder
   @moduledoc """
-  Implements the trandition encryption
+  Implements the tradition encryption.
   """
+
+  @behaviour Zstream.EncryptionCoder
+
   use Bitwise
 
   defmodule State do
