@@ -1,8 +1,9 @@
 defmodule Zstream.Coder.Deflate do
-  @behaviour Zstream.Coder
   @moduledoc """
-  Implements the Deflate coder
+  Implements the Deflate coder.
   """
+
+  @behaviour Zstream.Coder
 
   def init(_opts) do
     z = :zlib.open()
