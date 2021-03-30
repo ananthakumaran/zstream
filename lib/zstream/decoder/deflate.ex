@@ -5,12 +5,21 @@ defmodule Zstream.Decoder.Deflate do
   def init() do
     z = :zlib.open()
     :ok = :zlib.inflateInit(z, -15)
+    :zlib.setBufSize(z, 512 * 1024)
     z
   end
 
   def decode(chunk, z) do
     chunk = IO.iodata_to_binary(chunk)
-    {:zlib.inflate(z, chunk), z}
+    inflate_loop(:zlib.inflateChunk(z, chunk), z, [])
+  end
+
+  defp inflate_loop({:more, uncompressed}, z, acc) do
+    inflate_loop(:zlib.inflateChunk(z), z, [acc, uncompressed])
+  end
+
+  defp inflate_loop(uncompressed, z, acc) do
+    {[acc, uncompressed], z}
   end
 
   def close(z) do

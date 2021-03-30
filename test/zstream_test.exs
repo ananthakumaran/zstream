@@ -64,6 +64,21 @@ defmodule ZstreamTest do
     )
   end
 
+  test "very compressible file" do
+    # The bytes value was found by running with random values until it crashed
+    # bytes_stream = Stream.repeatedly(fn -> :rand.uniform(128 * 1024) end)
+    # the original exception this tests for only occurs when running decode_close
+    # with a chunk of data that expands a lot.
+    # Without a correct decode implementation, this raises with `:data_error` in
+    # `Zstream.Decoder.Deflate.close/1`
+
+    bytes = 94617
+
+    file("expanding.zip", bytes)
+    |> Zstream.unzip()
+    |> Stream.run()
+  end
+
   test "zip bomb" do
     files = [
       "zipbomb/zbsm.zip",
@@ -308,8 +323,8 @@ defmodule ZstreamTest do
     |> IO.iodata_to_binary()
   end
 
-  defp file(name) do
-    File.stream!(Path.join([__DIR__, "fixture", name]), [], 100)
+  defp file(name, bytes \\ 100) do
+    File.stream!(Path.join([__DIR__, "fixture", name]), [], bytes)
   end
 
   def random_bytes() do
