@@ -5,21 +5,56 @@ defmodule Zstream.Decoder.Deflate do
   def init() do
     z = :zlib.open()
     :ok = :zlib.inflateInit(z, -15)
-    :zlib.setBufSize(z, 512 * 1024)
+    :zlib.setBufSize(z, 1024 * 1024)
     z
+  end
+
+  def decode_safe(chunk, z) do
+    chunk = IO.iodata_to_binary(chunk)
+
+    stream =
+      Stream.resource(
+        fn ->
+          :zlib.safeInflate(z, chunk)
+        end,
+        fn
+          :complete ->
+            {:halt, :complete}
+
+          {:continue, uncompressed} ->
+            {[{:data, uncompressed}], :zlib.safeInflate(z, [])}
+
+          {:finished, uncompressed} ->
+            {[{:data, uncompressed}], :complete}
+        end,
+        fn _ -> :ok end
+      )
+
+    {stream, z}
   end
 
   def decode(chunk, z) do
     chunk = IO.iodata_to_binary(chunk)
-    inflate_loop(:zlib.inflateChunk(z, chunk), z, [])
-  end
 
-  defp inflate_loop({:more, uncompressed}, z, acc) do
-    inflate_loop(:zlib.inflateChunk(z), z, [acc, uncompressed])
-  end
+    stream =
+      Stream.resource(
+        fn ->
+          :zlib.inflateChunk(z, chunk)
+        end,
+        fn
+          :complete ->
+            {:halt, :complete}
 
-  defp inflate_loop(uncompressed, z, acc) do
-    {[acc, uncompressed], z}
+          {:more, uncompressed} ->
+            {[{:data, uncompressed}], :zlib.inflateChunk(z)}
+
+          uncompressed ->
+            {[{:data, uncompressed}], :complete}
+        end,
+        fn _ -> :ok end
+      )
+
+    {stream, z}
   end
 
   def close(z) do

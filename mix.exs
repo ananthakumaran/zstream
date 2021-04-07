@@ -23,6 +23,7 @@ defmodule Zstream.Mixfile do
 
   def application do
     [
+      mod: {Zstream.Application, []},
       extra_applications: [:logger]
     ]
   end

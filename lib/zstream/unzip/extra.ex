@@ -172,4 +172,21 @@ defmodule Zstream.Unzip.Extra do
   defp bit_set?(bits, n) do
     (bits &&& 1 <<< n) > 0
   end
+
+  def stream_with_finalizer(enum, acc, finalizer) do
+    ref = make_ref()
+
+    enum
+    |> Stream.concat([ref])
+    |> Stream.transform(
+      acc,
+      fn
+        ^ref, acc ->
+          finalizer.(acc)
+
+        elem, acc ->
+          {[elem], acc}
+      end
+    )
+  end
 end

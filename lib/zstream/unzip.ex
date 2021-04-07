@@ -1,7 +1,7 @@
 defmodule Zstream.Unzip do
   @moduledoc false
   alias Zstream.Entry
-  alias Zstream.Unzip.Extra
+  alias Zstream.Unzip.{Extra, Verifier}
 
   defmodule Error do
     defexception [:message]
@@ -35,8 +35,7 @@ defmodule Zstream.Unzip do
               data_sent: 0,
               decoder: nil,
               decoder_state: nil,
-              crc32: 0,
-              uncompressed_size: 0
+              verifier: nil
   end
 
   def unzip(stream, _options \\ []) do
@@ -95,6 +94,7 @@ defmodule Zstream.Unzip do
     case parse_local_header(data) do
       {:ok, local_header, rest} ->
         {decoder, decoder_state} = Zstream.Decoder.init(local_header.compression_method)
+        verifier = Verifier.new()
 
         if bit_set?(local_header.general_purpose_bit_flag, 3) do
           raise Error, "Zip files with data descriptor record are not supported"
@@ -105,7 +105,8 @@ defmodule Zstream.Unzip do
           | local_header: local_header,
             next: :filename_extra_field,
             decoder: decoder,
-            decoder_state: decoder_state
+            decoder_state: decoder_state,
+            verifier: verifier
         })
 
       :done ->
@@ -163,10 +164,7 @@ defmodule Zstream.Unzip do
 
     {results, new_state} = execute_state_machine(rest, state)
 
-    {[
-       {:entry, entry}
-       | results
-     ], new_state}
+    {Stream.concat([{:entry, entry}], results), new_state}
   end
 
   def file_data(data, state) do
@@ -174,18 +172,18 @@ defmodule Zstream.Unzip do
 
     if size + state.data_sent < state.local_header.compressed_size do
       {data, state} = decode(data, state)
-      {[{:data, data}], %{state | data_sent: state.data_sent + size}}
+      {data, %{state | data_sent: state.data_sent + size}}
     else
       data = IO.iodata_to_binary(data)
       length = state.local_header.compressed_size - state.data_sent
       file_chunk = binary_part(data, 0, length)
-      {file_chunk, state} = decode_close(file_chunk, state)
+      {data_stream, state} = decode_close(file_chunk, state)
       start = length
       rest = binary_part(data, start, size - start)
 
       state = %{state | data_sent: 0, next: :next_header}
       {results, state} = execute_state_machine(rest, state)
-      {[{:data, file_chunk} | [{:data, :eof} | results]], state}
+      {Stream.concat([data_stream, [{:data, :eof}], results]), state}
     end
   end
 
@@ -222,28 +220,37 @@ defmodule Zstream.Unzip do
   defp decode(data, state) do
     decoder = state.decoder
     decoder_state = state.decoder_state
-    {data, decoder_state} = decoder.decode(data, decoder_state)
-    crc32 = :erlang.crc32(state.crc32, data)
+    {data_stream, decoder_state} = decoder.decode(data, decoder_state)
+
+    data_stream = Stream.transform(data_stream, state.verifier, &Verifier.update/2)
+
     state = put_in(state.decoder_state, decoder_state)
-    state = put_in(state.crc32, crc32)
-    state = update_in(state.uncompressed_size, &(&1 + IO.iodata_length(data)))
-    {data, state}
+    {data_stream, state}
   end
 
   defp decode_close(data, state) do
-    {data, state} = decode(data, state)
-    extra_data = state.decoder.close(state.decoder_state)
+    {data_stream, state} = decode(data, state)
 
-    data =
-      if extra_data not in ["", []] do
-        [data, extra_data]
-      else
-        data
-      end
+    data_stream =
+      data_stream
+      |> Extra.stream_with_finalizer(
+        state,
+        fn state ->
+          extra_data = state.decoder.close(state.decoder_state)
+          Verifier.update({:data, extra_data}, state.verifier)
+        end
+      )
+      |> Extra.stream_with_finalizer(state, &verify_file_integrity/1)
 
-    data = [data, extra_data]
-    crc32 = :erlang.crc32(state.crc32, extra_data)
-    uncompressed_size = state.uncompressed_size + IO.iodata_length(extra_data)
+    state = put_in(state.decoder, nil)
+    state = put_in(state.decoder_state, nil)
+    state = put_in(state.verifier, nil)
+
+    {data_stream, state}
+  end
+
+  defp verify_file_integrity(state) do
+    {crc32, uncompressed_size} = Verifier.done(state.verifier)
 
     unless crc32 == state.local_header.crc32 do
       raise Error, "Invalid crc32, expected: #{state.local_header.crc32}, actual: #{crc32}"
@@ -256,11 +263,7 @@ defmodule Zstream.Unzip do
             }"
     end
 
-    state = put_in(state.decoder, nil)
-    state = put_in(state.decoder_state, nil)
-    state = put_in(state.crc32, 0)
-    state = put_in(state.uncompressed_size, 0)
-    {data, state}
+    {[], state}
   end
 
   # local file header signature
