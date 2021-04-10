@@ -3,7 +3,7 @@ defmodule Zstream.Decoder do
 
   @callback init() :: term
 
-  @callback decode(chunk :: iodata, state :: term) :: {iodata, term}
+  @callback decode(chunk :: iodata, state :: term) :: {[{:data, iodata}], term}
 
   @callback close(state :: term) :: iodata
 

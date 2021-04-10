@@ -70,7 +70,8 @@ defmodule ZstreamTest do
       "zipbomb/42-passwordless.zip",
       "zipbomb/338.zip",
       "zipbomb/droste.zip",
-      "zipbomb/zip-bomb.zip"
+      "zipbomb/zip-bomb.zip",
+      "zipbomb/high-compression-ratio.zip"
     ]
 
     Enum.each(files, fn path ->

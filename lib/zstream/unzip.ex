@@ -23,7 +23,8 @@ defmodule Zstream.Unzip do
       :file_name_length,
       :extra_field_length,
       :file_name,
-      :extra_field
+      :extra_field,
+      :extras
     ]
   end
 
@@ -34,7 +35,12 @@ defmodule Zstream.Unzip do
               local_header: nil,
               data_sent: 0,
               decoder: nil,
-              decoder_state: nil,
+              decoder_state: nil
+  end
+
+  defmodule VerifierState do
+    @moduledoc false
+    defstruct local_header: nil,
               crc32: 0,
               uncompressed_size: 0
   end
@@ -42,6 +48,43 @@ defmodule Zstream.Unzip do
   def unzip(stream, _options \\ []) do
     Stream.concat([stream, [:eof]])
     |> Stream.transform(%State{}, &execute_state_machine/2)
+    |> Stream.transform(%VerifierState{}, &verify/2)
+  end
+
+  defp verify({:local_header, local_header}, state) do
+    entry = %Entry{
+      name: local_header.file_name,
+      compressed_size: local_header.compressed_size,
+      size: local_header.uncompressed_size,
+      mtime: dos_time(local_header.last_modified_file_date, local_header.last_modified_file_time),
+      extras: local_header.extras
+    }
+
+    {[{:entry, entry}], %{state | local_header: local_header}}
+  end
+
+  defp verify({:data, :eof}, state) do
+    unless state.crc32 == state.local_header.crc32 do
+      raise Error, "Invalid crc32, expected: #{state.local_header.crc32}, actual: #{state.crc32}"
+    end
+
+    unless state.uncompressed_size == state.local_header.uncompressed_size do
+      raise Error,
+            "Invalid size, expected: #{state.local_header.uncompressed_size}, actual: #{
+              state.uncompressed_size
+            }"
+    end
+
+    {[{:data, :eof}], %VerifierState{}}
+  end
+
+  defp verify({:data, data}, state) do
+    {[{:data, data}],
+     %{
+       state
+       | crc32: :erlang.crc32(state.crc32, data),
+         uncompressed_size: state.uncompressed_size + IO.iodata_length(data)
+     }}
   end
 
   # Specification is available at
@@ -127,29 +170,10 @@ defmodule Zstream.Unzip do
     state = put_in(state.local_header.file_name, file_name)
     state = put_in(state.local_header.extra_field, extra_field)
     state = %{state | next: :file_data}
-    local_header = state.local_header
-
-    entry = %Entry{
-      name: local_header.file_name,
-      compressed_size: local_header.compressed_size,
-      size: local_header.uncompressed_size,
-      mtime: dos_time(local_header.last_modified_file_date, local_header.last_modified_file_time),
-      extras: Extra.parse(extra_field, [])
-    }
+    state = put_in(state.local_header.extras, Extra.parse(extra_field, []))
 
     zip64_extended_information =
-      Enum.find(entry.extras, &match?(%Extra.Zip64ExtendedInformation{}, &1))
-
-    entry =
-      if zip64_extended_information do
-        %{
-          entry
-          | size: zip64_extended_information.size,
-            compressed_size: zip64_extended_information.compressed_size
-        }
-      else
-        entry
-      end
+      Enum.find(state.local_header.extras, &match?(%Extra.Zip64ExtendedInformation{}, &1))
 
     state =
       if zip64_extended_information do
@@ -162,30 +186,26 @@ defmodule Zstream.Unzip do
       end
 
     {results, new_state} = execute_state_machine(rest, state)
-
-    {[
-       {:entry, entry}
-       | results
-     ], new_state}
+    {Stream.concat([{:local_header, state.local_header}], results), new_state}
   end
 
   def file_data(data, state) do
     size = IO.iodata_length(data)
 
     if size + state.data_sent < state.local_header.compressed_size do
-      {data, state} = decode(data, state)
-      {[{:data, data}], %{state | data_sent: state.data_sent + size}}
+      {chunks, state} = decode(data, state)
+      {chunks, %{state | data_sent: state.data_sent + size}}
     else
       data = IO.iodata_to_binary(data)
       length = state.local_header.compressed_size - state.data_sent
       file_chunk = binary_part(data, 0, length)
-      {file_chunk, state} = decode_close(file_chunk, state)
+      {chunks, state} = decode_close(file_chunk, state)
       start = length
       rest = binary_part(data, start, size - start)
 
       state = %{state | data_sent: 0, next: :next_header}
       {results, state} = execute_state_machine(rest, state)
-      {[{:data, file_chunk} | [{:data, :eof} | results]], state}
+      {Stream.concat([chunks, [{:data, :eof}], results]), state}
     end
   end
 
@@ -222,45 +242,25 @@ defmodule Zstream.Unzip do
   defp decode(data, state) do
     decoder = state.decoder
     decoder_state = state.decoder_state
-    {data, decoder_state} = decoder.decode(data, decoder_state)
-    crc32 = :erlang.crc32(state.crc32, data)
+    {chunks, decoder_state} = decoder.decode(data, decoder_state)
     state = put_in(state.decoder_state, decoder_state)
-    state = put_in(state.crc32, crc32)
-    state = update_in(state.uncompressed_size, &(&1 + IO.iodata_length(data)))
-    {data, state}
+    {chunks, state}
   end
 
   defp decode_close(data, state) do
-    {data, state} = decode(data, state)
+    {chunks, state} = decode(data, state)
     extra_data = state.decoder.close(state.decoder_state)
 
-    data =
+    chunks =
       if extra_data not in ["", []] do
-        [data, extra_data]
+        Stream.concat(chunks, [{:data, extra_data}])
       else
-        data
+        chunks
       end
-
-    data = [data, extra_data]
-    crc32 = :erlang.crc32(state.crc32, extra_data)
-    uncompressed_size = state.uncompressed_size + IO.iodata_length(extra_data)
-
-    unless crc32 == state.local_header.crc32 do
-      raise Error, "Invalid crc32, expected: #{state.local_header.crc32}, actual: #{crc32}"
-    end
-
-    unless uncompressed_size == state.local_header.uncompressed_size do
-      raise Error,
-            "Invalid size, expected: #{state.local_header.uncompressed_size}, actual: #{
-              uncompressed_size
-            }"
-    end
 
     state = put_in(state.decoder, nil)
     state = put_in(state.decoder_state, nil)
-    state = put_in(state.crc32, 0)
-    state = put_in(state.uncompressed_size, 0)
-    {data, state}
+    {chunks, state}
   end
 
   # local file header signature

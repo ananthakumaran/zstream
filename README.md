@@ -40,8 +40,8 @@ File.stream!("archive.zip", [], 512)
 |> Zstream.unzip()
 |> Enum.reduce(%{}, fn
   {:entry, %Zstream.Entry{name: file_name} = entry}, state -> state
-  {:data, data}, state -> state
   {:data, :eof}, state -> state
+  {:data, data}, state -> state
 end)
 ```
 
