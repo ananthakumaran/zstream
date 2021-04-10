@@ -75,8 +75,19 @@ defmodule ZstreamTest do
     ]
 
     Enum.each(files, fn path ->
-      file(path)
+      file(path, 1024 * 512)
       |> Zstream.unzip()
+      |> Stream.each(fn
+        {:data, :eof} ->
+          :ok
+
+        {:data, data} ->
+          assert IO.iodata_length(data) < 1024 * 64
+          :ok
+
+        _ ->
+          :ok
+      end)
       |> Stream.run()
     end)
   end
@@ -309,8 +320,8 @@ defmodule ZstreamTest do
     |> IO.iodata_to_binary()
   end
 
-  defp file(name) do
-    File.stream!(Path.join([__DIR__, "fixture", name]), [], 100)
+  defp file(name, size \\ 100) do
+    File.stream!(Path.join([__DIR__, "fixture", name]), [], size)
   end
 
   def random_bytes() do
