@@ -249,14 +249,26 @@ defmodule Zstream.Unzip do
 
   defp decode_close(data, state) do
     {chunks, state} = decode(data, state)
-    extra_data = state.decoder.close(state.decoder_state)
 
     chunks =
-      if extra_data not in ["", []] do
-        Stream.concat(chunks, [{:data, extra_data}])
-      else
-        chunks
-      end
+      Stream.concat(
+        chunks,
+        Stream.resource(
+          fn -> state.decoder.close(state.decoder_state) end,
+          fn
+            nil ->
+              {:halt, nil}
+
+            data ->
+              if data not in ["", []] do
+                {[{:data, data}], nil}
+              else
+                {:halt, nil}
+              end
+          end,
+          fn _ -> :ok end
+        )
+      )
 
     state = put_in(state.decoder, nil)
     state = put_in(state.decoder_state, nil)

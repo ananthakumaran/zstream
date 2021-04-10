@@ -29,6 +29,6 @@ defmodule Zstream.Decoder.Deflate do
   def close(z) do
     :ok = :zlib.inflateEnd(z)
     :ok = :zlib.close(z)
-    ""
+    []
   end
 end
