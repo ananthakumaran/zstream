@@ -256,15 +256,11 @@ defmodule Zstream.Unzip do
         Stream.resource(
           fn -> state.decoder.close(state.decoder_state) end,
           fn
-            nil ->
+            empty when empty in [nil, "", []] ->
               {:halt, nil}
-
+              
             data ->
-              if data not in ["", []] do
-                {[{:data, data}], nil}
-              else
-                {:halt, nil}
-              end
+              {[{:data, data}], nil}
           end,
           fn _ -> :ok end
         )
