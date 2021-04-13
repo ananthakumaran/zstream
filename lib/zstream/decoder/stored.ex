@@ -7,7 +7,7 @@ defmodule Zstream.Decoder.Stored do
   end
 
   def decode(chunk, nil) do
-    {chunk, nil}
+    {[{:data, chunk}], nil}
   end
 
   def close(nil) do

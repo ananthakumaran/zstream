@@ -6,6 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     name: OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - elixir: 1.6
