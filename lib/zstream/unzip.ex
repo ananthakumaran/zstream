@@ -258,7 +258,7 @@ defmodule Zstream.Unzip do
           fn
             empty when empty in [nil, "", []] ->
               {:halt, nil}
-              
+
             data ->
               {[{:data, data}], nil}
           end,
