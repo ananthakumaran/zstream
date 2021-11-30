@@ -129,7 +129,7 @@ defmodule Zstream.Zip do
 
     state = update_in(state.current, &Map.merge(&1, header))
     state = put_in(state.current.options, header.options)
-    state = put_in(state.current.crc, :zlib.crc32(state.zlib_handle, <<>>))
+    state = put_in(state.current.crc, :erlang.crc32(<<>>))
     state = put_in(state.current.local_file_header_offset, state.offset)
 
     local_file_header =
@@ -153,7 +153,7 @@ defmodule Zstream.Zip do
     state = put_in(state.coder_state, coder_state)
     state = put_in(state.encryption_coder_state, encryption_coder_state)
     state = update_in(state.current.c_size, &(&1 + c_size))
-    state = update_in(state.current.crc, &:zlib.crc32(state.zlib_handle, &1, chunk))
+    state = update_in(state.current.crc, &:erlang.crc32(&1, chunk))
     state = update_in(state.current.size, &(&1 + IO.iodata_length(chunk)))
     state = update_in(state.offset, &(&1 + c_size))
 
