@@ -52,8 +52,8 @@ defmodule Zstream.EncryptionCoder.Traditional do
   defp encrypt(state, <<char::binary-size(1)>> <> rest, encrypted) do
     <<byte::integer-size(8)>> = char
     temp = (state.key2 ||| 2) &&& 0x0000FFFF
-    temp = (temp * (temp ^^^ 1)) >>> 8 &&& 0x000000FF
-    cipher = <<byte ^^^ temp::integer-size(8)>>
+    temp = (temp * Bitwise.bxor(temp, 1)) >>> 8 &&& 0x000000FF
+    cipher = << Bitwise.bxor(byte, temp)::integer-size(8)>>
     state = update_keys(state, <<byte::integer-size(8)>>)
     encrypt(state, rest, [cipher | encrypted])
   end
@@ -79,7 +79,7 @@ defmodule Zstream.EncryptionCoder.Traditional do
   end
 
   defp crc32(current, data) do
-    :erlang.crc32(current ^^^ 0xFFFFFFFF, data) ^^^ 0xFFFFFFFF
+    Bitwise.bxor(:erlang.crc32(Bitwise.bxor(current, 0xFFFFFFFF), data), 0xFFFFFFFF)
   end
 
   defp dos_time(t) do
