@@ -19,7 +19,7 @@ in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:zstream, "~> 0.6.0"}
+    {:zstream, "~> 0.6.1"}
   ]
 end
 ```
