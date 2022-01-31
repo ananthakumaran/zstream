@@ -62,7 +62,7 @@ defmodule Zstream do
       can support files more than 4 GB in size, but not all the unzip
       programs support this format. Defaults to `false`.
   """
-  @spec zip([entry], Keyword.t()) :: Enumerable.t()
+  @spec zip(Enumerable.t(), Keyword.t()) :: Enumerable.t()
   defdelegate zip(entries, options \\ []), to: Zstream.Zip
 
   @doc """
