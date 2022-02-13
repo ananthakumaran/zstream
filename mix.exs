@@ -2,7 +2,7 @@ defmodule Zstream.Mixfile do
   use Mix.Project
 
   @source_url "https://github.com/ananthakumaran/zstream"
-  @version "0.6.1"
+  @version "0.6.2"
 
   def project do
     [
