@@ -17,6 +17,10 @@ jobs:
             otp: 22.2
           - elixir: 1.10.4
             otp: 23.0
+          - elixir: 1.13.0
+            otp: 24.1
+            check_warnings: true
+            check_format: true
     steps:
       - uses: actions/checkout@v2
       - uses: erlef/setup-elixir@v1
@@ -24,4 +28,8 @@ jobs:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
       - run: mix deps.get
+      - run: mix format --check-formatted
+        if: ${{ matrix.check_format }}
+      - run: mix compile --force --warnings-as-errors
+        if: ${{ matrix.check_warnings }}
       - run: mix test --trace

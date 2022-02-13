@@ -70,9 +70,7 @@ defmodule Zstream.Unzip do
 
     unless state.uncompressed_size == state.local_header.uncompressed_size do
       raise Error,
-            "Invalid size, expected: #{state.local_header.uncompressed_size}, actual: #{
-              state.uncompressed_size
-            }"
+            "Invalid size, expected: #{state.local_header.uncompressed_size}, actual: #{state.uncompressed_size}"
     end
 
     {[{:data, :eof}], %VerifierState{}}

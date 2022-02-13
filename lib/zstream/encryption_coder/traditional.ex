@@ -53,7 +53,7 @@ defmodule Zstream.EncryptionCoder.Traditional do
     <<byte::integer-size(8)>> = char
     temp = (state.key2 ||| 2) &&& 0x0000FFFF
     temp = (temp * Bitwise.bxor(temp, 1)) >>> 8 &&& 0x000000FF
-    cipher = << Bitwise.bxor(byte, temp)::integer-size(8)>>
+    cipher = <<Bitwise.bxor(byte, temp)::integer-size(8)>>
     state = update_keys(state, <<byte::integer-size(8)>>)
     encrypt(state, rest, [cipher | encrypted])
   end
