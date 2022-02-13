@@ -3,7 +3,7 @@ defmodule Zstream.Decoder do
 
   @callback init() :: term
 
-  @callback decode(chunk :: iodata, state :: term) :: {[{:data, iodata}], term}
+  @callback decode(chunk :: iodata, state :: term) :: {Enumerable.t(), term}
 
   @callback close(state :: term) :: iodata
 

@@ -133,26 +133,20 @@ defmodule Zstream.Unzip do
   def local_file_header(data, state) do
     data = IO.iodata_to_binary(data)
 
-    case parse_local_header(data) do
-      {:ok, local_header, rest} ->
-        {decoder, decoder_state} = Zstream.Decoder.init(local_header.compression_method)
+    {:ok, local_header, rest} = parse_local_header(data)
+    {decoder, decoder_state} = Zstream.Decoder.init(local_header.compression_method)
 
-        if bit_set?(local_header.general_purpose_bit_flag, 3) do
-          raise Error, "Zip files with data descriptor record are not supported"
-        end
-
-        execute_state_machine(rest, %{
-          state
-          | local_header: local_header,
-            next: :filename_extra_field,
-            decoder: decoder,
-            decoder_state: decoder_state
-        })
-
-      :done ->
-        state = %{state | next: :done}
-        {[], state}
+    if bit_set?(local_header.general_purpose_bit_flag, 3) do
+      raise Error, "Zip files with data descriptor record are not supported"
     end
+
+    execute_state_machine(rest, %{
+      state
+      | local_header: local_header,
+        next: :filename_extra_field,
+        decoder: decoder,
+        decoder_state: decoder_state
+    })
   end
 
   def filename_extra_field(data, state) do

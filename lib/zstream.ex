@@ -87,5 +87,6 @@ defmodule Zstream do
     * Doesn't support file which uses data descriptor header.
     * Doesn't support encrypted file.
   """
+  @spec zip(Enumerable.t()) :: Enumerable.t()
   defdelegate unzip(stream), to: Zstream.Unzip
 end

@@ -15,7 +15,8 @@ defmodule Zstream.Mixfile do
       docs: docs(),
       dialyzer: [
         plt_add_deps: :transitive,
-        flags: [:unmatched_returns, :race_conditions, :error_handling, :underspecs]
+        flags: [:unmatched_returns, :race_conditions, :error_handling, :underspecs],
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
       ],
       deps: deps()
     ]
@@ -30,7 +31,8 @@ defmodule Zstream.Mixfile do
   defp deps do
     [
       {:temp, "~> 0.4", only: :test, runtime: false},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
     ]
   end
 

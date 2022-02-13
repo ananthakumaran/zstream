@@ -21,6 +21,7 @@ jobs:
             otp: 24.1
             check_warnings: true
             check_format: true
+            dialyzer: true
     steps:
       - uses: actions/checkout@v2
       - uses: erlef/setup-elixir@v1
@@ -33,3 +34,21 @@ jobs:
       - run: mix compile --force --warnings-as-errors
         if: ${{ matrix.check_warnings }}
       - run: mix test --trace
+      - name: Restore PLT cache
+        uses: actions/cache@v2
+        if: ${{ matrix.dialyzer }}
+        id: plt_cache
+        with:
+          key: |
+            ${{ runner.os }}-${{ matrix.elixir }}-${{ matrix.otp }}-plt
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.elixir }}-${{ matrix.otp }}-plt
+          path: |
+            priv/plts
+      # Create PLTs if no cache was found
+      - name: Create PLTs
+        if: ${{ matrix.dialyzer && steps.plt_cache.outputs.cache-hit != 'true' }}
+        run: mix dialyzer --plt
+      - name: Run dialyzer
+        if: ${{ matrix.dialyzer }}
+        run: mix dialyzer

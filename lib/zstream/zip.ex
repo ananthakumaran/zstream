@@ -200,7 +200,7 @@ defmodule Zstream.Zip do
       if state.coder do
         _compressed = state.coder.close(state.coder_state)
         state = put_in(state.coder, nil)
-        put_in(state.coder_state, nil)
+        state = put_in(state.coder_state, nil)
         _encrypted = state.encryption_coder.close(state.encryption_coder_state)
         state = put_in(state.encryption_coder, nil)
         put_in(state.encryption_coder_state, nil)
