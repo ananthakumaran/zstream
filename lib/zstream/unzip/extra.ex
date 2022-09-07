@@ -1,6 +1,6 @@
 defmodule Zstream.Unzip.Extra do
   @moduledoc false
-  use Bitwise
+  import Bitwise
 
   defmodule Unknown do
     @type t :: %__MODULE__{

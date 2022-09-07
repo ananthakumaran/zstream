@@ -1,6 +1,5 @@
 defmodule Zstream.Zip.Extra do
   @moduledoc false
-  use Bitwise
 
   #    -Zip64 Extended Information Extra Field (0x0001):
 

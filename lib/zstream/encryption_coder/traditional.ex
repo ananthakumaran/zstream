@@ -5,7 +5,7 @@ defmodule Zstream.EncryptionCoder.Traditional do
 
   @behaviour Zstream.EncryptionCoder
 
-  use Bitwise
+  import Bitwise
 
   defmodule State do
     @moduledoc false
