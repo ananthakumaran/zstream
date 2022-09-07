@@ -7,7 +7,7 @@ defmodule Zstream.Unzip do
     defexception [:message]
   end
 
-  use Bitwise
+  import Bitwise
 
   defmodule LocalHeader do
     @moduledoc false

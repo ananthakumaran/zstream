@@ -1,7 +1,7 @@
 defmodule Zstream.Protocol do
   @moduledoc false
 
-  use Bitwise
+  import Bitwise
   alias Zstream.Zip.Extra
 
   # Specification is available at
