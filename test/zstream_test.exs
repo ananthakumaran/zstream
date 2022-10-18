@@ -32,6 +32,7 @@ defmodule ZstreamTest do
   end
 
   test "unzip" do
+    verify_unzip("docx")
     verify_unzip("uncompressed")
     verify_unzip("compressed-standard")
     verify_unzip("compressed-flags-set")
