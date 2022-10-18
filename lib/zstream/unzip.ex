@@ -168,10 +168,14 @@ defmodule Zstream.Unzip do
       Enum.find(state.local_header.extras, &match?(%Extra.Zip64ExtendedInformation{}, &1))
 
     state =
-      if zip64_extended_information do
-        state =
-          put_in(state.local_header.compressed_size, zip64_extended_information.compressed_size)
+      if zip64_extended_information && state.local_header.compressed_size == 0xFFFFFFFF do
+        put_in(state.local_header.compressed_size, zip64_extended_information.compressed_size)
+      else
+        state
+      end
 
+    state =
+      if zip64_extended_information && state.local_header.uncompressed_size == 0xFFFFFFFF do
         put_in(state.local_header.uncompressed_size, zip64_extended_information.size)
       else
         state
