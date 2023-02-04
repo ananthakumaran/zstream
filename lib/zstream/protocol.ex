@@ -9,12 +9,21 @@ defmodule Zstream.Protocol do
 
   @comment "Created by Zstream"
 
-  def local_file_header(name, local_file_header_offset, options) do
+  def local_file_header(name, _local_file_header_offset, options) do
+    {crc32, c_size, size} =
+      if Keyword.fetch!(options, :data_descriptor) do
+        {0, 0, 0}
+      else
+        size = Keyword.fetch!(options, :size)
+        crc32 = Keyword.fetch!(options, :crc32)
+        {crc32, size, size}
+      end
+
     extra_field =
       zip64?(
         options,
         <<>>,
-        Extra.zip64_extended_info(0, 0, local_file_header_offset)
+        Extra.local_zip64_extended_info(size, c_size)
       )
 
     [
@@ -31,11 +40,11 @@ defmodule Zstream.Protocol do
         # last mod file date
         dos_date(Keyword.fetch!(options, :mtime))::little-size(16),
         # crc-32
-        0::little-size(32),
+        crc32::little-size(32),
         # compressed size
-        0::little-size(32),
+        zip64?(options, c_size, 0xFFFFFFFF)::little-size(32),
         # uncompressed size
-        0::little-size(32),
+        zip64?(options, size, 0xFFFFFFFF)::little-size(32),
         # file name length
         byte_size(name)::little-size(16),
         # extra field length
@@ -47,14 +56,19 @@ defmodule Zstream.Protocol do
   end
 
   def data_descriptor(crc32, compressed_size, uncompressed_size, options) do
-    if Keyword.fetch!(options, :zip64) do
-      # signature
-      <<0x08074B50::little-size(32), crc32::little-size(32), compressed_size::little-size(64),
-        uncompressed_size::little-size(64)>>
-    else
-      # signature
-      <<0x08074B50::little-size(32), crc32::little-size(32), compressed_size::little-size(32),
-        uncompressed_size::little-size(32)>>
+    cond do
+      !Keyword.fetch!(options, :data_descriptor) ->
+        []
+
+      Keyword.fetch!(options, :zip64) ->
+        # signature
+        <<0x08074B50::little-size(32), crc32::little-size(32), compressed_size::little-size(64),
+          uncompressed_size::little-size(64)>>
+
+      true ->
+        # signature
+        <<0x08074B50::little-size(32), crc32::little-size(32), compressed_size::little-size(32),
+          uncompressed_size::little-size(32)>>
     end
   end
 
@@ -179,10 +193,17 @@ defmodule Zstream.Protocol do
   defp general_purpose_bit_flag(options) do
     {encryption_coder, _opts} = Keyword.fetch!(options, :encryption_coder)
 
+    data_descriptor_flag =
+      if Keyword.fetch!(options, :data_descriptor) do
+        0x0008
+      else
+        0x0000
+      end
+
     # encryption bit set based on coder
     # bit 3 use data descriptor
     # bit 11 UTF-8 encoding of filename & comment fields
-    encryption_coder.general_purpose_flag() ||| 0x0008 ||| 0x0800
+    encryption_coder.general_purpose_flag() ||| data_descriptor_flag ||| 0x0800
   end
 
   defp external_file_attributes do

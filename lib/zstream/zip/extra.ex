@@ -39,4 +39,9 @@ defmodule Zstream.Zip.Extra do
     <<0x0001::little-size(16), 28::little-size(16), size::little-size(64),
       c_size::little-size(64), offset::little-size(64), 0::little-size(32)>>
   end
+
+  def local_zip64_extended_info(size, c_size) do
+    <<0x0001::little-size(16), 16::little-size(16), size::little-size(64),
+      c_size::little-size(64)>>
+  end
 end

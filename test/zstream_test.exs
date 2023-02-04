@@ -31,6 +31,35 @@ defmodule ZstreamTest do
     ])
   end
 
+  test "zip with known size and crc" do
+    verify([
+      Zstream.entry("10.txt", ["123456789."],
+        coder: Zstream.Coder.Stored,
+        data_descriptor: false,
+        size: 10,
+        crc32: 3_692_204_934
+      )
+    ])
+
+    verify([
+      Zstream.entry("kafka_uncompressed", file("kafan.txt"),
+        coder: Zstream.Coder.Stored,
+        data_descriptor: false,
+        size: 33248,
+        crc32: 2_503_591_999
+      )
+    ])
+
+    verify([
+      Zstream.entry("empty_file_1", [],
+        coder: Zstream.Coder.Stored,
+        data_descriptor: false,
+        size: 0,
+        crc32: 0
+      )
+    ])
+  end
+
   test "unzip" do
     verify_unzip("docx")
     verify_unzip("uncompressed")
@@ -270,6 +299,12 @@ defmodule ZstreamTest do
     {response, exit_code} = System.cmd("zipinfo", [path])
     Logger.debug(response)
     assert exit_code == 0
+
+    if Keyword.get(options, :debug) do
+      {response, exit_code} = System.cmd("zipdetails", [path])
+      Logger.debug(response)
+      assert exit_code == 0
+    end
 
     {response, exit_code} = System.cmd("unzip", ["-t", path])
     Logger.debug(response)
