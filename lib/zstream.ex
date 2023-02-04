@@ -47,6 +47,25 @@ defmodule Zstream do
 
 
     * `:mtime` (DateTime) - File last modication time. Defaults to system local time.
+
+  ## Disable Data Descriptor
+
+  By default, zstream will use the [data
+  descriptor](https://en.wikipedia.org/wiki/ZIP_(file_format)#Data_descriptor)
+  feature and skip the crc32 and size value in the local file
+  header. This might not work with some old versions of zip, since
+  this was a later addition to the zip format to support streaming.
+
+  If the file size and crc32 are known, this feature can be
+  disabled. NOTE: If `data_descriptor` is set to false, then the coder
+  should be set to `Zstream.Coder.Stored` as well.
+
+    * `:data_descriptor` (boolean) - Disable Data Descriptor. Defaults to true
+
+    * `:size` (integer) - Size of the File.
+
+    * `:crc32` (integer) - CRC32 of the File.
+
   """
   @spec entry(String.t(), Enumerable.t(), Keyword.t()) :: entry
   defdelegate entry(name, enum, options \\ []), to: Zstream.Zip
