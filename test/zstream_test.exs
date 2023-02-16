@@ -33,6 +33,15 @@ defmodule ZstreamTest do
 
   test "zip with known size and crc" do
     verify([
+      Zstream.entry("10.txt", ["123456789."],
+        coder: Zstream.Coder.Stored,
+        data_descriptor: false,
+        size: 10,
+        crc32: 3_692_204_934
+      )
+    ])
+
+    verify([
       Zstream.entry("kafka_uncompressed", file("kafan.txt"),
         coder: Zstream.Coder.Stored,
         data_descriptor: false,

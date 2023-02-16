@@ -9,7 +9,7 @@ defmodule Zstream.Protocol do
 
   @comment "Created by Zstream"
 
-  def local_file_header(name, local_file_header_offset, options) do
+  def local_file_header(name, _local_file_header_offset, options) do
     {crc32, c_size, size} =
       if Keyword.fetch!(options, :data_descriptor) do
         {0, 0, 0}
@@ -23,7 +23,7 @@ defmodule Zstream.Protocol do
       zip64?(
         options,
         <<>>,
-        Extra.zip64_extended_info(size, c_size, local_file_header_offset)
+        Extra.local_zip64_extended_info(size, c_size)
       )
 
     [
