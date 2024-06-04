@@ -36,13 +36,7 @@ defmodule Zstream.Zip.Extra do
   #       Local Header for the original file size will be zero.
 
   def zip64_extended_info(size, c_size, offset) do
-    [
-      <<0x0001::little-size(16)>>,
-      <<28::little-size(16)>>,
-      <<size::little-size(64)>>,
-      <<c_size::little-size(64)>>,
-      <<offset::little-size(64)>>,
-      <<0::little-size(32)>>
-    ]
+    <<0x0001::little-size(16), 28::little-size(16), size::little-size(64),
+      c_size::little-size(64), offset::little-size(64), 0::little-size(32)>>
   end
 end
