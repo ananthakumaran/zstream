@@ -18,27 +18,29 @@ defmodule Zstream.Protocol do
       )
 
     [
-      # local file header signature
-      <<0x04034B50::little-size(32)>>,
-      # version needed to extract
-      <<zip64?(options, 20, 45)::little-size(16)>>,
-      general_purpose_bit_flag(options),
-      # compression method
-      <<compression_method(options)::little-size(16)>>,
-      # last mod file time
-      <<dos_time(Keyword.fetch!(options, :mtime))::little-size(16)>>,
-      # last mod file date
-      <<dos_date(Keyword.fetch!(options, :mtime))::little-size(16)>>,
-      # crc-32
-      <<0::little-size(32)>>,
-      # compressed size
-      <<0::little-size(32)>>,
-      # uncompressed size
-      <<0::little-size(32)>>,
-      # file name length
-      <<byte_size(name)::little-size(16)>>,
-      # extra field length
-      <<IO.iodata_length(extra_field)::little-size(16)>>,
+      <<
+        # local file header signature
+        0x04034B50::little-size(32),
+        # version needed to extract
+        zip64?(options, 20, 45)::little-size(16),
+        general_purpose_bit_flag(options)::little-size(16),
+        # compression method
+        compression_method(options)::little-size(16),
+        # last mod file time
+        dos_time(Keyword.fetch!(options, :mtime))::little-size(16),
+        # last mod file date
+        dos_date(Keyword.fetch!(options, :mtime))::little-size(16),
+        # crc-32
+        0::little-size(32),
+        # compressed size
+        0::little-size(32),
+        # uncompressed size
+        0::little-size(32),
+        # file name length
+        byte_size(name)::little-size(16),
+        # extra field length
+        IO.iodata_length(extra_field)::little-size(16)
+      >>,
       name,
       extra_field
     ]
@@ -46,21 +48,13 @@ defmodule Zstream.Protocol do
 
   def data_descriptor(crc32, compressed_size, uncompressed_size, options) do
     if Keyword.fetch!(options, :zip64) do
-      [
-        # signature
-        <<0x08074B50::little-size(32)>>,
-        <<crc32::little-size(32)>>,
-        <<compressed_size::little-size(64)>>,
-        <<uncompressed_size::little-size(64)>>
-      ]
+      # signature
+      <<0x08074B50::little-size(32), crc32::little-size(32), compressed_size::little-size(64),
+        uncompressed_size::little-size(64)>>
     else
-      [
-        # signature
-        <<0x08074B50::little-size(32)>>,
-        <<crc32::little-size(32)>>,
-        <<compressed_size::little-size(32)>>,
-        <<uncompressed_size::little-size(32)>>
-      ]
+      # signature
+      <<0x08074B50::little-size(32), crc32::little-size(32), compressed_size::little-size(32),
+        uncompressed_size::little-size(32)>>
     end
   end
 
@@ -75,37 +69,39 @@ defmodule Zstream.Protocol do
       )
 
     [
-      # central file header signature
-      <<0x02014B50::little-size(32)>>,
-      # version made by
-      <<52::little-size(16)>>,
-      # version needed to extract
-      <<zip64?(options, 20, 45)::little-size(16)>>,
-      general_purpose_bit_flag(entry.options),
-      # compression method
-      <<compression_method(entry.options)::little-size(16)>>,
-      # last mod file time
-      <<dos_time(Keyword.fetch!(entry.options, :mtime))::little-size(16)>>,
-      # last mod file date
-      <<dos_date(Keyword.fetch!(entry.options, :mtime))::little-size(16)>>,
-      # crc-32
-      <<entry.crc::little-size(32)>>,
-      # compressed size
-      <<zip64?(options, entry.c_size, 0xFFFFFFFF)::little-size(32)>>,
-      # uncompressed size
-      <<zip64?(options, entry.size, 0xFFFFFFFF)::little-size(32)>>,
-      # file name length
-      <<byte_size(entry.name)::little-size(16)>>,
-      # extra field length
-      <<IO.iodata_length(extra_field)::little-size(16)>>,
-      # file comment length
-      <<0::little-size(16)>>,
-      # disk number start
-      <<zip64?(options, 0, 0xFFFF)::little-size(16)>>,
-      # internal file attributes
-      <<0::little-size(16)>>,
-      <<external_file_attributes()::little-size(32)>>,
-      <<zip64?(options, entry.local_file_header_offset, 0xFFFFFFFF)::little-size(32)>>,
+      <<
+        # central file header signature
+        0x02014B50::little-size(32),
+        # version made by
+        52::little-size(16),
+        # version needed to extract
+        zip64?(options, 20, 45)::little-size(16),
+        general_purpose_bit_flag(entry.options)::little-size(16),
+        # compression method
+        compression_method(entry.options)::little-size(16),
+        # last mod file time
+        dos_time(Keyword.fetch!(entry.options, :mtime))::little-size(16),
+        # last mod file date
+        dos_date(Keyword.fetch!(entry.options, :mtime))::little-size(16),
+        # crc-32
+        entry.crc::little-size(32),
+        # compressed size
+        zip64?(options, entry.c_size, 0xFFFFFFFF)::little-size(32),
+        # uncompressed size
+        zip64?(options, entry.size, 0xFFFFFFFF)::little-size(32),
+        # file name length
+        byte_size(entry.name)::little-size(16),
+        # extra field length
+        IO.iodata_length(extra_field)::little-size(16),
+        # file comment length
+        0::little-size(16),
+        # disk number start
+        zip64?(options, 0, 0xFFFF)::little-size(16),
+        # internal file attributes
+        0::little-size(16),
+        external_file_attributes()::little-size(32),
+        zip64?(options, entry.local_file_header_offset, 0xFFFFFFFF)::little-size(32)
+      >>,
       # file name
       entry.name,
       extra_field
@@ -114,28 +110,28 @@ defmodule Zstream.Protocol do
 
   def zip64_end_of_central_directory_record(offset, size, entries_count, options) do
     if Keyword.fetch!(options, :zip64) do
-      [
+      <<
         # signature
-        <<0x06064B50::little-size(32)>>,
+        0x06064B50::little-size(32),
         # size of zip64 end of central directory record
-        <<44::little-size(64)>>,
+        44::little-size(64),
         # version made by
-        <<52::little-size(16)>>,
+        52::little-size(16),
         # version needed to extract
-        <<45::little-size(16)>>,
+        45::little-size(16),
         # number of this disk
-        <<0::little-size(32)>>,
+        0::little-size(32),
         # number of the disk with the start of the central directory
-        <<0::little-size(32)>>,
+        0::little-size(32),
         # total number of entries in the central directory on this disk
-        <<entries_count::little-size(64)>>,
+        entries_count::little-size(64),
         # total number of entries in the central directory
-        <<entries_count::little-size(64)>>,
+        entries_count::little-size(64),
         # size of the central directory
-        <<size::little-size(64)>>,
+        size::little-size(64),
         # offset of start of central directory with respect to the starting disk number
-        <<offset::little-size(64)>>
-      ]
+        offset::little-size(64)
+      >>
     else
       <<>>
     end
@@ -143,41 +139,41 @@ defmodule Zstream.Protocol do
 
   def zip64_end_of_central_directory_locator(offset, options) do
     if Keyword.fetch!(options, :zip64) do
-      [
+      <<
         # signature
-        <<0x07064B50::little-size(32)>>,
+        0x07064B50::little-size(32),
         # number of the disk with the start of the zip64 end of central directory
-        <<0::little-size(32)>>,
+        0::little-size(32),
         # relative offset of the zip64 end of central directory record
-        <<offset::little-size(64)>>,
+        offset::little-size(64),
         # total number of disks
-        <<1::little-size(32)>>
-      ]
+        1::little-size(32)
+      >>
     else
       <<>>
     end
   end
 
   def end_of_central_directory(offset, size, entries_count, options) do
-    [
+    <<
       # end of central dir signature
-      <<0x06054B50::little-size(32)>>,
+      0x06054B50::little-size(32),
       # number of this disk
-      <<zip64?(options, 0, 0xFFFF)::little-size(16)>>,
+      zip64?(options, 0, 0xFFFF)::little-size(16),
       # number of the disk with the start of the central directory
-      <<zip64?(options, 0, 0xFFFF)::little-size(16)>>,
+      zip64?(options, 0, 0xFFFF)::little-size(16),
       # total number of entries in the central directory on this disk
-      <<zip64?(options, entries_count, 0xFFFF)::little-size(16)>>,
+      zip64?(options, entries_count, 0xFFFF)::little-size(16),
       # total number of entries in the central directory
-      <<zip64?(options, entries_count, 0xFFFF)::little-size(16)>>,
+      zip64?(options, entries_count, 0xFFFF)::little-size(16),
       # size of the central directory
-      <<zip64?(options, size, 0xFFFFFFFF)::little-size(32)>>,
+      zip64?(options, size, 0xFFFFFFFF)::little-size(32),
       # offset of start of central directory with respect to the starting disk number
-      <<zip64?(options, offset, 0xFFFFFFFF)::little-size(32)>>,
+      zip64?(options, offset, 0xFFFFFFFF)::little-size(32),
       # .ZIP file comment length
-      <<byte_size(@comment)::little-size(16)>>,
+      byte_size(@comment)::little-size(16),
       @comment
-    ]
+    >>
   end
 
   defp general_purpose_bit_flag(options) do
@@ -186,7 +182,7 @@ defmodule Zstream.Protocol do
     # encryption bit set based on coder
     # bit 3 use data descriptor
     # bit 11 UTF-8 encoding of filename & comment fields
-    <<encryption_coder.general_purpose_flag() ||| 0x0008 ||| 0x0800::little-size(16)>>
+    encryption_coder.general_purpose_flag() ||| 0x0008 ||| 0x0800
   end
 
   defp external_file_attributes do
