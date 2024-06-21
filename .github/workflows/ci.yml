@@ -21,6 +21,8 @@ jobs:
             otp: 24.1
           - elixir: 1.14.0
             otp: 25.0
+          - elixir: 1.16.0
+            otp: 26.0
             check_warnings: true
             check_format: true
             dialyzer: true
@@ -35,7 +37,11 @@ jobs:
         if: ${{ matrix.check_format }}
       - run: mix compile --force --warnings-as-errors
         if: ${{ matrix.check_warnings }}
-      - run: mix test --trace
+      - run: mix coveralls.json --trace
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Restore PLT cache
         uses: actions/cache@v2
         if: ${{ matrix.dialyzer }}
