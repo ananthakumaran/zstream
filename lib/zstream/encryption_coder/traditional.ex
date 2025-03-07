@@ -83,6 +83,6 @@ defmodule Zstream.EncryptionCoder.Traditional do
   end
 
   defp dos_time(t) do
-    round(t.second / 2 + (t.minute <<< 5) + (t.hour <<< 11))
+    div(t.second, 2) + (t.minute <<< 5) + (t.hour <<< 11)
   end
 end
