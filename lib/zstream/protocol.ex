@@ -197,7 +197,7 @@ defmodule Zstream.Protocol do
   end
 
   defp dos_time(t) do
-    round(t.second / 2 + (t.minute <<< 5) + (t.hour <<< 11))
+    div(t.second, 2) + (t.minute <<< 5) + (t.hour <<< 11)
   end
 
   defp dos_date(t) do
