@@ -44,7 +44,10 @@ defmodule Zstream.Mixfile do
   defp package do
     %{
       licenses: ["MIT"],
-      links: %{"GitHub" => @source_url, "Changelog" => "https://hexdocs.pm/zstream/changelog.html"},
+      links: %{
+        "GitHub" => @source_url,
+        "Changelog" => "https://hexdocs.pm/zstream/changelog.html"
+      },
       maintainers: ["Anantha Kumaran <ananthakumaran@gmail.com>"]
     }
   end
