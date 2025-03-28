@@ -1,6 +1,11 @@
 defmodule Zstream.EncryptionCoder.Traditional do
   @moduledoc """
-  Implements the tradition encryption.
+  Implements traditional encryption using byte-by-byte processing.
+
+  #### Notice {: .warning}
+
+  Processing a single large chunk can lead to significant memory allocation due to recursive handling of each byte.
+  To improve performance, split your data into smaller chunks.
   """
 
   @behaviour Zstream.EncryptionCoder
