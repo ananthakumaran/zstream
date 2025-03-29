@@ -45,36 +45,39 @@ defmodule Zstream.EncryptionCoder.Traditional do
 
   def general_purpose_flag, do: 0x0001
 
-  defp encrypt(state, chunk), do: encrypt(state, chunk, [])
+  defp encrypt(state, chunk), do: encrypt(state, chunk, <<>>)
 
-  defp encrypt(state, <<>>, encrypted), do: {Enum.reverse(encrypted), state}
+  defp encrypt(state, <<>>, encrypted), do: {encrypted, state}
 
-  defp encrypt(state, <<char::binary-size(1)>> <> rest, encrypted) do
+  defp encrypt(
+         state = %State{key0: key0, key1: key1, key2: key2},
+         <<char::binary-size(1), rest::binary>>,
+         encrypted
+       ) do
     <<byte::integer-size(8)>> = char
-    temp = (state.key2 ||| 2) &&& 0x0000FFFF
+    temp = (key2 ||| 2) &&& 0x0000FFFF
     temp = (temp * Bitwise.bxor(temp, 1)) >>> 8 &&& 0x000000FF
-    cipher = <<Bitwise.bxor(byte, temp)::integer-size(8)>>
-    state = update_keys(state, <<byte::integer-size(8)>>)
-    encrypt(state, rest, [cipher | encrypted])
+    cipher = Bitwise.bxor(byte, temp)
+
+    key0 = crc32(key0, char)
+    key1 = (key1 + (key0 &&& 0x000000FF)) * 134_775_813 + 1 &&& 0xFFFFFFFF
+    key2 = crc32(key2, <<key1 >>> 24::integer-size(8)>>)
+
+    %{state | key0: key0, key1: key1, key2: key2}
+    |> encrypt(rest, <<encrypted::binary, cipher::integer-size(8)>>)
   end
 
   defp update_keys(state, <<>>), do: state
 
-  defp update_keys(state, <<char::binary-size(1)>> <> rest) do
-    state = put_in(state.key0, crc32(state.key0, char))
+  defp update_keys(
+         state = %State{key0: key0, key1: key1, key2: key2},
+         <<char::binary-size(1), rest::binary>>
+       ) do
+    key0 = crc32(key0, char)
+    key1 = (key1 + (key0 &&& 0x000000FF)) * 134_775_813 + 1 &&& 0xFFFFFFFF
+    key2 = crc32(key2, <<key1 >>> 24::integer-size(8)>>)
 
-    state =
-      put_in(
-        state.key1,
-        (state.key1 + (state.key0 &&& 0x000000FF)) * 134_775_813 + 1 &&& 0xFFFFFFFF
-      )
-
-    state =
-      put_in(
-        state.key2,
-        crc32(state.key2, <<state.key1 >>> 24::integer-size(8)>>)
-      )
-
+    state = %{state | key0: key0, key1: key1, key2: key2}
     update_keys(state, rest)
   end
 
