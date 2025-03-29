@@ -18,5 +18,10 @@ Types of changes:
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [0.6.6] - 2025-03-29
+
+### Changed
+- Improve traditional encryption performance (#29)
+
 ### Added
 - Changelog
