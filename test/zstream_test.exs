@@ -175,6 +175,21 @@ defmodule ZstreamTest do
     assert_memory()
   end
 
+  test "stream encryption" do
+    big_file = Stream.repeatedly(&random_bytes/0) |> Stream.take(50)
+
+    assert_memory()
+
+    Zstream.zip([
+      Zstream.entry("big_file_2", big_file,
+        encryption_coder: {Zstream.EncryptionCoder.Traditional, password: "123456"}
+      )
+    ])
+    |> Stream.run()
+
+    assert_memory()
+  end
+
   defmodule MockCoder do
     @behaviour Zstream.Coder
     def init(_opts), do: nil
