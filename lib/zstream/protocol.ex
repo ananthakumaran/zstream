@@ -163,11 +163,11 @@ defmodule Zstream.Protocol do
       # number of the disk with the start of the central directory
       zip64?(options, 0, 0xFFFF)::little-size(16),
       # total number of entries in the central directory on this disk
-      zip64?(options, entries_count, 0xFFFF)::little-size(16),
+      ceil_zip64?(options, entries_count, 0xFFFF)::little-size(16),
       # total number of entries in the central directory
-      zip64?(options, entries_count, 0xFFFF)::little-size(16),
+      ceil_zip64?(options, entries_count, 0xFFFF)::little-size(16),
       # size of the central directory
-      zip64?(options, size, 0xFFFFFFFF)::little-size(32),
+      ceil_zip64?(options, size, 0xFFFFFFFF)::little-size(32),
       # offset of start of central directory with respect to the starting disk number
       zip64?(options, offset, 0xFFFFFFFF)::little-size(32),
       # .ZIP file comment length
@@ -207,6 +207,14 @@ defmodule Zstream.Protocol do
   defp zip64?(options, normal, zip64) do
     if Keyword.fetch!(options, :zip64) do
       zip64
+    else
+      normal
+    end
+  end
+
+  defp ceil_zip64?(options, normal, max_value) do
+    if Keyword.fetch!(options, :zip64) && normal > max_value do
+      max_value
     else
       normal
     end
