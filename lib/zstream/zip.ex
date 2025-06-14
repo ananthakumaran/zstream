@@ -99,8 +99,7 @@ defmodule Zstream.Zip do
       Protocol.end_of_central_directory(
         state.offset,
         IO.iodata_length(central_directory_headers),
-        length(state.entries),
-        global_options
+        length(state.entries)
       )
 
     {[
