@@ -1,5 +1,4 @@
 { pkgs ? import <nixpkgs> { } }:
 pkgs.mkShell {
-  nativeBuildInputs =
-    [ pkgs.beam.packages.erlang_26.elixir_1_16 ];
+  nativeBuildInputs = [ pkgs.beam.packages.erlang_27.elixir_1_18 ];
 }

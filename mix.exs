@@ -8,7 +8,7 @@ defmodule Zstream.Mixfile do
     [
       app: :zstream,
       version: @version,
-      elixir: "~> 1.6",
+      elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
       description: "Streaming zip file writer and reader",
       package: package(),
@@ -16,11 +16,6 @@ defmodule Zstream.Mixfile do
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
         "coveralls.json": :test
-      ],
-      dialyzer: [
-        plt_add_deps: :apps_direct,
-        flags: [:unmatched_returns, :error_handling, :underspecs],
-        plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
       ],
       deps: deps()
     ]
@@ -36,7 +31,6 @@ defmodule Zstream.Mixfile do
     [
       {:temp, "~> 0.4", only: :test, runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.18", only: :test}
     ]
   end

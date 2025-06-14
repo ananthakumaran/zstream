@@ -17,6 +17,7 @@ Types of changes:
 
 
 ## [Unreleased] - yyyy-mm-dd
+- Drop support for Elixir < 1.12
 
 ## [0.6.6] - 2025-03-29
 
