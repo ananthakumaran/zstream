@@ -9,6 +9,8 @@ defmodule Zstream.Protocol do
 
   @comment "Created by Zstream"
 
+  defp get_encryption_coder(options), do: get_in(options, [:encryption_coder, Access.elem(0)])
+
   def local_file_header(name, local_file_header_offset, options) do
     extra_field =
       zip64?(
@@ -17,12 +19,28 @@ defmodule Zstream.Protocol do
         Extra.zip64_extended_info(0, 0, local_file_header_offset)
       )
 
+    encryption_coder = get_encryption_coder(options)
+
+    encryption_extra_field =
+      if encryption_coder && function_exported?(encryption_coder, :extra_field_data, 1) do
+        encryption_coder.extra_field_data(options)
+      else
+        <<>>
+      end
+
+    version_needed_to_extract =
+      if encryption_coder && function_exported?(encryption_coder, :version_needed_to_extract, 0) do
+        encryption_coder.version_needed_to_extract()
+      else
+        zip64?(options, 20, 45)
+      end
+
     [
       <<
         # local file header signature
         0x04034B50::little-size(32),
         # version needed to extract
-        zip64?(options, 20, 45)::little-size(16),
+        version_needed_to_extract::little-size(16),
         general_purpose_bit_flag(options)::little-size(16),
         # compression method
         compression_method(options)::little-size(16),
@@ -39,21 +57,32 @@ defmodule Zstream.Protocol do
         # file name length
         byte_size(name)::little-size(16),
         # extra field length
-        IO.iodata_length(extra_field)::little-size(16)
+        IO.iodata_length([extra_field, encryption_extra_field])::little-size(16)
       >>,
       name,
-      extra_field
+      [extra_field, encryption_extra_field]
     ]
   end
 
   def data_descriptor(crc32, compressed_size, uncompressed_size, options) do
+    encryption_coder = get_encryption_coder(options)
+
+    crc =
+      if encryption_coder &&
+           function_exported?(encryption_coder, :crc_exposed?, 1) &&
+           !encryption_coder.crc_exposed?(options) do
+        0
+      else
+        crc32
+      end
+
     if Keyword.fetch!(options, :zip64) do
       # signature
-      <<0x08074B50::little-size(32), crc32::little-size(32), compressed_size::little-size(64),
+      <<0x08074B50::little-size(32), crc::little-size(32), compressed_size::little-size(64),
         uncompressed_size::little-size(64)>>
     else
       # signature
-      <<0x08074B50::little-size(32), crc32::little-size(32), compressed_size::little-size(32),
+      <<0x08074B50::little-size(32), crc::little-size(32), compressed_size::little-size(32),
         uncompressed_size::little-size(32)>>
     end
   end
@@ -68,6 +97,29 @@ defmodule Zstream.Protocol do
         Extra.zip64_extended_info(entry.size, entry.c_size, entry.local_file_header_offset)
       )
 
+    encryption_coder = get_encryption_coder(options)
+
+    encryption_extra_field =
+      if encryption_coder && function_exported?(encryption_coder, :extra_field_data, 1) do
+        encryption_coder.extra_field_data(options)
+      else
+        <<>>
+      end
+
+    version_needed_to_extract =
+      if encryption_coder && function_exported?(encryption_coder, :version_needed_to_extract, 0) do
+        encryption_coder.version_needed_to_extract()
+      else
+        zip64?(options, 20, 45)
+      end
+
+    crc_exposed? =
+      if encryption_coder && function_exported?(encryption_coder, :crc_exposed?, 1) do
+        encryption_coder.crc_exposed?(options)
+      else
+        true
+      end
+
     [
       <<
         # central file header signature
@@ -75,7 +127,7 @@ defmodule Zstream.Protocol do
         # version made by
         52::little-size(16),
         # version needed to extract
-        zip64?(options, 20, 45)::little-size(16),
+        version_needed_to_extract::little-size(16),
         general_purpose_bit_flag(entry.options)::little-size(16),
         # compression method
         compression_method(entry.options)::little-size(16),
@@ -84,7 +136,7 @@ defmodule Zstream.Protocol do
         # last mod file date
         dos_date(Keyword.fetch!(entry.options, :mtime))::little-size(16),
         # crc-32
-        entry.crc::little-size(32),
+        if(crc_exposed?, do: entry.crc, else: 0)::little-size(32),
         # compressed size
         zip64?(options, entry.c_size, 0xFFFFFFFF)::little-size(32),
         # uncompressed size
@@ -92,7 +144,7 @@ defmodule Zstream.Protocol do
         # file name length
         byte_size(entry.name)::little-size(16),
         # extra field length
-        IO.iodata_length(extra_field)::little-size(16),
+        IO.iodata_length([extra_field, encryption_extra_field])::little-size(16),
         # file comment length
         0::little-size(16),
         # disk number start
@@ -104,7 +156,7 @@ defmodule Zstream.Protocol do
       >>,
       # file name
       entry.name,
-      extra_field
+      [extra_field, encryption_extra_field]
     ]
   end
 
@@ -193,7 +245,14 @@ defmodule Zstream.Protocol do
 
   defp compression_method(options) do
     {coder, _opts} = Keyword.fetch!(options, :coder)
-    coder.compression_method()
+
+    encryption_coder = get_encryption_coder(options)
+
+    if encryption_coder && function_exported?(encryption_coder, :compression_method, 0) do
+      encryption_coder.compression_method()
+    else
+      coder.compression_method()
+    end
   end
 
   defp dos_time(t) do

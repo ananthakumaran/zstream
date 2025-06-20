@@ -190,6 +190,22 @@ defmodule ZstreamTest do
     assert_memory()
   end
 
+  test "aes stream encryption" do
+    big_file = Stream.repeatedly(&random_bytes/0) |> Stream.take(50)
+
+    assert_memory()
+
+    # Test AES encryption with streaming
+    Zstream.zip([
+      Zstream.entry("big_file_aes", big_file,
+        encryption_coder: {Zstream.EncryptionCoder.AES, password: "test123", key_size: 256}
+      )
+    ])
+    |> Stream.run()
+
+    assert_memory()
+  end
+
   defmodule MockCoder do
     @behaviour Zstream.Coder
     def init(_opts), do: nil
