@@ -165,11 +165,11 @@ defmodule Zstream.Zip do
 
   defp close_entry(state) do
     if state.coder do
-      {encrypted, _encryption_coder_state} =
+      {encrypted, encryption_coder_state} =
         state.coder.close(state.coder_state)
         |> state.encryption_coder.encode(state.encryption_coder_state)
 
-      encrypted = [encrypted, state.encryption_coder.close(state.encryption_coder_state)]
+      encrypted = [encrypted, state.encryption_coder.close(encryption_coder_state)]
       c_size = IO.iodata_length(encrypted)
       state = put_in(state.coder, nil)
       state = put_in(state.coder_state, nil)
