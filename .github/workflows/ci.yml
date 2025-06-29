@@ -27,6 +27,10 @@ jobs:
         with:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
+      - name: Install 7zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y 7zip
       - run: mix deps.get
       - run: mix format --check-formatted
         if: ${{ matrix.check_format }}
