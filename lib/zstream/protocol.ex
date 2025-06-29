@@ -154,22 +154,22 @@ defmodule Zstream.Protocol do
     end
   end
 
-  def end_of_central_directory(offset, size, entries_count, options) do
+  def end_of_central_directory(offset, size, entries_count) do
     <<
       # end of central dir signature
       0x06054B50::little-size(32),
       # number of this disk
-      zip64?(options, 0, 0xFFFF)::little-size(16),
+      0::little-size(16),
       # number of the disk with the start of the central directory
-      zip64?(options, 0, 0xFFFF)::little-size(16),
+      0::little-size(16),
       # total number of entries in the central directory on this disk
-      zip64?(options, entries_count, 0xFFFF)::little-size(16),
+      Enum.min([entries_count, 0xFFFF])::little-size(16),
       # total number of entries in the central directory
-      zip64?(options, entries_count, 0xFFFF)::little-size(16),
+      Enum.min([entries_count, 0xFFFF])::little-size(16),
       # size of the central directory
-      zip64?(options, size, 0xFFFFFFFF)::little-size(32),
+      Enum.min([size, 0xFFFFFFFF])::little-size(32),
       # offset of start of central directory with respect to the starting disk number
-      zip64?(options, offset, 0xFFFFFFFF)::little-size(32),
+      Enum.min([offset, 0xFFFFFFFF])::little-size(32),
       # .ZIP file comment length
       byte_size(@comment)::little-size(16),
       @comment
