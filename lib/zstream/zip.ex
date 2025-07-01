@@ -29,7 +29,8 @@ defmodule Zstream.Zip do
 
   @default [
     coder: {Zstream.Coder.Deflate, []},
-    encryption_coder: {Zstream.EncryptionCoder.None, []}
+    encryption_coder: {Zstream.EncryptionCoder.None, []},
+    data_descriptor: true
   ]
 
   @global_default [
