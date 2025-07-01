@@ -3,13 +3,13 @@ defmodule Zstream.EncryptionCoder.AES do
   Implements AES encryption (128, 192, 256) as described in https://www.winzip.com/en/support/aes-encryption
 
   Supports both AE-1 and AE-2 formats:
-  - AE-1: Exposes the CRC-32 in the zip file
-  - AE-2: Does not expose the CRC-32 in the zip file (more secure, recommended)
+  - AE-1: Exposes the CRC-32 in the zip file, WinZip itself encrypts most files using the AE-1 format
+  - AE-2: Does not expose the CRC-32 in the zip file
 
   ## Options
 
     * `:key_size` - The AES key size in bits. Valid values are 128, 192, or 256. Defaults to 256.
-    * `:ae_version` - The AES encryption format version. Valid values are 1 or 2. Defaults to 2.
+    * `:ae_version` - The AES encryption format version. Valid values are 1 or 2. Defaults to 1.
   """
   @behaviour Zstream.EncryptionCoder
 
@@ -42,7 +42,7 @@ defmodule Zstream.EncryptionCoder.AES do
   def init(opts) do
     password = Keyword.fetch!(opts, :password)
     key_size = Keyword.get(opts, :key_size, 256)
-    ae_version = Keyword.get(opts, :ae_version, 2)
+    ae_version = Keyword.get(opts, :ae_version, 1)
 
     if key_size not in [128, 192, 256] do
       raise ArgumentError, "Invalid key_size: #{key_size}. Must be 128, 192, or 256."
@@ -166,7 +166,7 @@ defmodule Zstream.EncryptionCoder.AES do
     {coder, _options} = Keyword.fetch!(options, :coder)
     {_encryption_coder, encryption_options} = Keyword.fetch!(options, :encryption_coder)
     key_size = Keyword.get(encryption_options, :key_size, 256)
-    ae_version = Keyword.get(encryption_options, :ae_version, 2)
+    ae_version = Keyword.get(encryption_options, :ae_version, 1)
 
     <<
       # Extra field header ID
@@ -191,7 +191,7 @@ defmodule Zstream.EncryptionCoder.AES do
   @impl true
   def crc_exposed?(options) do
     {_encryption_coder, encryption_options} = Keyword.fetch!(options, :encryption_coder)
-    ae_version = Keyword.get(encryption_options, :ae_version, 2)
+    ae_version = Keyword.get(encryption_options, :ae_version, 1)
     ae_version == 1
   end
 end
