@@ -184,6 +184,7 @@ defmodule Zstream.EncryptionCoder.AES do
     >>
   end
 
+  # https://github.com/zlib-ng/minizip-ng/blob/636cba8643/doc/zip/appnote.iz.txt#L386
   @impl true
   def version_needed_to_extract, do: 51
 
