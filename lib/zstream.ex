@@ -44,7 +44,7 @@ defmodule Zstream do
         - `Zstream.EncryptionCoder.AES` - use AES encryption (128, 192, or 256-bit).
         `:password` key should be present in the options. Supports both AE-1 and AE-2
         formats. Additional options: `:key_size` (128, 192, or 256, defaults to 256),
-        `:ae_version` (1 or 2, defaults to 2). Example `{Zstream.EncryptionCoder.AES,
+        `:ae_version` (1 or 2, defaults to 1). Example `{Zstream.EncryptionCoder.AES,
         password: "secret", key_size: 256, ae_version: 1}`
 
         - `Zstream.EncryptionCoder.None` - no encryption
