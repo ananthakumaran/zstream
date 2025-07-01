@@ -18,7 +18,7 @@ defmodule Zstream.EncryptionCoder.AES do
   # https://www.winzip.com/en/support/aes-encryption/#key-generation
   @pbkdf2_iterations 1000
   # https://www.winzip.com/en/support/aes-encryption/#salt
-  @pbkdf2_salt_length 16
+  @pbkdf2_salt_lengths %{128 => 8, 192 => 12, 256 => 16}
   # https://www.winzip.com/en/support/aes-encryption/#pwd-verify
   @password_verify_length 2
 
@@ -53,7 +53,7 @@ defmodule Zstream.EncryptionCoder.AES do
     end
 
     aes_key_length = @aes_key_sizes[key_size]
-    salt = :crypto.strong_rand_bytes(@pbkdf2_salt_length)
+    salt = :crypto.strong_rand_bytes(@pbkdf2_salt_lengths[key_size])
 
     <<
       encryption_key::binary-size(aes_key_length),
