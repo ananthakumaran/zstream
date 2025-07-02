@@ -190,60 +190,68 @@ defmodule ZstreamTest do
     assert_memory()
   end
 
-  # 7z only supports AES-256 encryption, so this test covers only the AES-256 case.
-  test "aes 256 encryption" do
-    password = Base.encode64(:crypto.strong_rand_bytes(12))
+  for ae_version <- [1, 2], key_size <- [256, 192, 128] do
+    test "aes key_size: #{key_size}, ae_version: #{ae_version} encryption" do
+      password = Base.encode64(:crypto.strong_rand_bytes(12))
 
-    verify_aes_password(
-      [
-        Zstream.entry("kafan", file("kafan.txt"),
-          encryption_coder:
-            {Zstream.EncryptionCoder.AES, password: password, key_size: 256, ae_version: 1}
-        ),
-        Zstream.entry("kafka_uncompressed", file("kafan.txt"),
-          coder: Zstream.Coder.Stored,
-          encryption_coder:
-            {Zstream.EncryptionCoder.AES, password: password, key_size: 256, ae_version: 2}
-        ),
-        Zstream.entry("कफ़न", file("kafan.txt"),
-          encryption_coder:
-            {Zstream.EncryptionCoder.AES, password: password, key_size: 256, ae_version: 1}
-        )
-      ],
-      password
-    )
+      verify_aes_password(
+        [
+          Zstream.entry("kafan", file("kafan.txt"),
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          ),
+          Zstream.entry("kafka_uncompressed", file("kafan.txt"),
+            coder: Zstream.Coder.Stored,
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          ),
+          Zstream.entry("कफ़न", file("kafan.txt"),
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          )
+        ],
+        password
+      )
 
-    # Test AES with empty files
-    verify_aes_password(
-      [
-        Zstream.entry("empty_file", [],
-          encryption_coder:
-            {Zstream.EncryptionCoder.AES, password: password, key_size: 256, ae_version: 1}
-        ),
-        Zstream.entry("empty_file_1", [],
-          coder: Zstream.Coder.Stored,
-          encryption_coder:
-            {Zstream.EncryptionCoder.AES, password: password, key_size: 256, ae_version: 2}
-        )
-      ],
-      password
-    )
+      # Test AES with empty files
+      verify_aes_password(
+        [
+          Zstream.entry("empty_file", [],
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          ),
+          Zstream.entry("empty_file_1", [],
+            coder: Zstream.Coder.Stored,
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          )
+        ],
+        password
+      )
 
-    # Test AES with larger files
-    verify_aes_password(
-      [
-        Zstream.entry("moby.txt", file("moby_dick.txt"),
-          coder: Zstream.Coder.Stored,
-          encryption_coder:
-            {Zstream.EncryptionCoder.AES, password: password, key_size: 256, ae_version: 1}
-        ),
-        Zstream.entry("deep/moby.txt", file("moby_dick.txt"),
-          encryption_coder:
-            {Zstream.EncryptionCoder.AES, password: password, key_size: 256, ae_version: 2}
-        )
-      ],
-      password
-    )
+      # Test AES with larger files
+      verify_aes_password(
+        [
+          Zstream.entry("moby.txt", file("moby_dick.txt"),
+            coder: Zstream.Coder.Stored,
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          ),
+          Zstream.entry("deep/moby.txt", file("moby_dick.txt"),
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          )
+        ],
+        password
+      )
+    end
   end
 
   test "aes stream encryption" do
