@@ -21,11 +21,11 @@ defmodule Zstream.Protocol do
 
     encryption_coder = get_encryption_coder(options)
 
-    encryption_extra_field =
+    final_extra_field =
       if encryption_coder && function_exported?(encryption_coder, :extra_field_data, 1) do
-        encryption_coder.extra_field_data(options)
+        [extra_field, encryption_coder.extra_field_data(options)]
       else
-        <<>>
+        extra_field
       end
 
     version_needed_to_extract =
@@ -57,10 +57,10 @@ defmodule Zstream.Protocol do
         # file name length
         byte_size(name)::little-size(16),
         # extra field length
-        IO.iodata_length([extra_field, encryption_extra_field])::little-size(16)
+        IO.iodata_length(final_extra_field)::little-size(16)
       >>,
       name,
-      [extra_field, encryption_extra_field]
+      final_extra_field
     ]
   end
 
@@ -99,11 +99,11 @@ defmodule Zstream.Protocol do
 
     encryption_coder = get_encryption_coder(options)
 
-    encryption_extra_field =
+    final_extra_field =
       if encryption_coder && function_exported?(encryption_coder, :extra_field_data, 1) do
-        encryption_coder.extra_field_data(options)
+        [extra_field, encryption_coder.extra_field_data(options)]
       else
-        <<>>
+        extra_field
       end
 
     version_needed_to_extract =
@@ -144,7 +144,7 @@ defmodule Zstream.Protocol do
         # file name length
         byte_size(entry.name)::little-size(16),
         # extra field length
-        IO.iodata_length([extra_field, encryption_extra_field])::little-size(16),
+        IO.iodata_length(final_extra_field)::little-size(16),
         # file comment length
         0::little-size(16),
         # disk number start
@@ -156,7 +156,7 @@ defmodule Zstream.Protocol do
       >>,
       # file name
       entry.name,
-      [extra_field, encryption_extra_field]
+      final_extra_field
     ]
   end
 
