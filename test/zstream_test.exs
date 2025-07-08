@@ -468,13 +468,12 @@ defmodule ZstreamTest do
     Enum.each(entries, fn entry ->
       extracted_path = Path.join(temp_dir, entry.name)
 
-      if File.exists?(extracted_path) do
-        extracted_content = File.read!(extracted_path)
-        original_content = as_binary(entry.stream)
+      assert File.exists?(extracted_path)
+      extracted_content = File.read!(extracted_path)
+      original_content = as_binary(entry.stream)
 
-        assert extracted_content == original_content,
-               "Content mismatch for #{entry.name}"
-      end
+      assert extracted_content == original_content,
+             "Content mismatch for #{entry.name}"
     end)
 
     File.rm_rf!(temp_dir)
