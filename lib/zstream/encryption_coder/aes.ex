@@ -145,7 +145,7 @@ defmodule Zstream.EncryptionCoder.AES do
     auth_code = binary_part(:crypto.mac_final(final_state.mac_state), 0, 10)
     <<>> = :crypto.crypto_final(final_state.crypto_state)
 
-    final_encrypted <> auth_code
+    [final_encrypted, auth_code]
   end
 
   # https://www.winzip.com/en/support/aes-encryption/#comp-method
