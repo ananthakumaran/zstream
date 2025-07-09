@@ -17,6 +17,10 @@ Types of changes:
 
 
 ## [Unreleased] - yyyy-mm-dd
+
+## [0.6.7] - 2025-07-09
+- Add WinZip AES encryption support (#32)
+- Improve zip64 compatibility (#30)
 - Drop support for Elixir < 1.12
 
 ## [0.6.6] - 2025-03-29
