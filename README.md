@@ -50,7 +50,7 @@ end)
 ### zip
 
 * compression (deflate, stored)
-* encryption (traditional)
+* encryption (traditional, [WinZip AES](https://www.winzip.com/en/support/aes-encryption/))
 * zip64
 
 ### unzip

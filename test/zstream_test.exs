@@ -190,6 +190,86 @@ defmodule ZstreamTest do
     assert_memory()
   end
 
+  for ae_version <- [1, 2], key_size <- [256, 192, 128] do
+    test "aes key_size: #{key_size}, ae_version: #{ae_version} encryption" do
+      password = Base.encode64(:crypto.strong_rand_bytes(12))
+
+      verify_aes_password(
+        [
+          Zstream.entry("kafan", file("kafan.txt"),
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          ),
+          Zstream.entry("kafka_uncompressed", file("kafan.txt"),
+            coder: Zstream.Coder.Stored,
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          ),
+          Zstream.entry("कफ़न", file("kafan.txt"),
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          )
+        ],
+        password
+      )
+
+      # Test AES with empty files
+      verify_aes_password(
+        [
+          Zstream.entry("empty_file", [],
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          ),
+          Zstream.entry("empty_file_1", [],
+            coder: Zstream.Coder.Stored,
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          )
+        ],
+        password
+      )
+
+      # Test AES with larger files
+      verify_aes_password(
+        [
+          Zstream.entry("moby.txt", file("moby_dick.txt"),
+            coder: Zstream.Coder.Stored,
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          ),
+          Zstream.entry("deep/moby.txt", file("moby_dick.txt"),
+            encryption_coder:
+              {Zstream.EncryptionCoder.AES,
+               password: password, key_size: unquote(key_size), ae_version: unquote(ae_version)}
+          )
+        ],
+        password
+      )
+    end
+  end
+
+  test "aes stream encryption" do
+    big_file = Stream.repeatedly(&random_bytes/0) |> Stream.take(50)
+
+    assert_memory()
+
+    # Test AES encryption with streaming
+    Zstream.zip([
+      Zstream.entry("big_file_aes", big_file,
+        encryption_coder: {Zstream.EncryptionCoder.AES, password: "test123", key_size: 256}
+      )
+    ])
+    |> Stream.run()
+
+    assert_memory()
+  end
+
   defmodule MockCoder do
     @behaviour Zstream.Coder
     def init(_opts), do: nil
@@ -348,5 +428,55 @@ defmodule ZstreamTest do
     total = (:erlang.memory() |> Keyword.fetch!(:total)) / (1024 * 1024)
     Logger.debug("Total memory: #{total}")
     assert total < 150
+  end
+
+  defp verify_aes_password(entries, password) do
+    verify_aes_password_with_options(entries, password)
+    verify_aes_password_with_options(entries, password, zip64: true)
+  end
+
+  defp verify_aes_password_with_options(entries, password, options \\ []) do
+    Temp.track!()
+    path = Temp.path!(%{suffix: ".zip"})
+
+    Zstream.zip(entries, options)
+    |> Stream.into(File.stream!(path))
+    |> Stream.run()
+
+    # Use 7zz to verify the AES encrypted archive
+    {response, exit_code} = System.cmd("7zz", ["l", path])
+    Logger.debug("7zz list output: #{response}")
+    assert exit_code == 0
+
+    # Test the archive integrity and password
+    {response, exit_code} = System.cmd("7zz", ["t", "-p#{password}", path])
+    Logger.debug("7zz test output: #{response}")
+    assert exit_code == 0
+
+    # Extract and verify file contents
+    temp_dir = Temp.mkdir!()
+
+    {response, exit_code} =
+      System.cmd("7zz", ["x", "-p#{password}", "-o#{temp_dir}", path, "-y"])
+
+    Logger.debug("7zz extract output: #{response}")
+    assert exit_code == 0
+
+    # Verify extracted file contents match original
+    entries = Enum.reject(entries, fn e -> String.ends_with?(e.name, "/") end)
+
+    Enum.each(entries, fn entry ->
+      extracted_path = Path.join(temp_dir, entry.name)
+
+      assert File.exists?(extracted_path)
+      extracted_content = File.read!(extracted_path)
+      original_content = as_binary(entry.stream)
+
+      assert extracted_content == original_content,
+             "Content mismatch for #{entry.name}"
+    end)
+
+    File.rm_rf!(temp_dir)
+    File.rm!(path)
   end
 end
