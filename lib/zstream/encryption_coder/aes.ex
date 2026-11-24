@@ -55,11 +55,7 @@ defmodule Zstream.EncryptionCoder.AES do
     aes_key_length = @aes_key_sizes[key_size]
     salt = :crypto.strong_rand_bytes(@pbkdf2_salt_lengths[key_size])
 
-    <<
-      encryption_key::binary-size(aes_key_length),
-      hmac_key::binary-size(aes_key_length),
-      password_verify::binary-size(@password_verify_length)
-    >> =
+    derived =
       :crypto.pbkdf2_hmac(
         :sha,
         password,
@@ -67,6 +63,10 @@ defmodule Zstream.EncryptionCoder.AES do
         @pbkdf2_iterations,
         aes_key_length + aes_key_length + @password_verify_length
       )
+
+    encryption_key = binary_part(derived, 0, aes_key_length)
+    hmac_key = binary_part(derived, aes_key_length, aes_key_length)
+    password_verify = binary_part(derived, 2 * aes_key_length, @password_verify_length)
 
     %State{
       encrypted_file_header: salt <> password_verify,
@@ -100,7 +100,7 @@ defmodule Zstream.EncryptionCoder.AES do
       block_count = div(input_size, @aes_block_size)
       blocks = Enum.map(counter..(counter + block_count - 1), &<<&1::unsigned-little-128>>)
       plaintext_size = block_count * @aes_block_size
-      <<plaintext::binary-size(plaintext_size), new_buffer::binary>> = input
+      {plaintext, new_buffer} = :erlang.split_binary(input, plaintext_size)
       cipher = :crypto.exor(plaintext, :crypto.crypto_update(crypto_state, blocks))
 
       {
