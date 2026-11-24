@@ -8,16 +8,21 @@ defmodule Zstream.Mixfile do
     [
       app: :zstream,
       version: @version,
-      elixir: "~> 1.12",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       description: "Streaming zip file writer and reader",
       package: package(),
       docs: docs(),
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        "coveralls.json": :test
-      ],
       deps: deps()
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        "coveralls.json": :test
+      ]
     ]
   end
 

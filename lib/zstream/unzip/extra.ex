@@ -149,7 +149,7 @@ defmodule Zstream.Unzip.Extra do
         acc
       ) do
     tsize = tsize - 16
-    <<_data::binary-size(tsize), rest::binary>> = rest
+    <<_data::binary-size(^tsize), rest::binary>> = rest
 
     zip64_extended_information = %Zip64ExtendedInformation{
       size: size,
@@ -160,7 +160,7 @@ defmodule Zstream.Unzip.Extra do
   end
 
   def parse(<<signature::little-size(16), tsize::little-size(16), rest::binary>>, acc) do
-    <<data::binary-size(tsize), rest::binary>> = rest
+    <<data::binary-size(^tsize), rest::binary>> = rest
 
     parse(rest, [
       %Unknown{signature: Integer.to_string(signature, 16), tsize: tsize, data: data} | acc

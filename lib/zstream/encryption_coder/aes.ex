@@ -56,8 +56,8 @@ defmodule Zstream.EncryptionCoder.AES do
     salt = :crypto.strong_rand_bytes(@pbkdf2_salt_lengths[key_size])
 
     <<
-      encryption_key::binary-size(aes_key_length),
-      hmac_key::binary-size(aes_key_length),
+      encryption_key::binary-size(^aes_key_length),
+      hmac_key::binary-size(^aes_key_length),
       password_verify::binary-size(@password_verify_length)
     >> =
       :crypto.pbkdf2_hmac(
@@ -100,7 +100,7 @@ defmodule Zstream.EncryptionCoder.AES do
       block_count = div(input_size, @aes_block_size)
       blocks = Enum.map(counter..(counter + block_count - 1), &<<&1::unsigned-little-128>>)
       plaintext_size = block_count * @aes_block_size
-      <<plaintext::binary-size(plaintext_size), new_buffer::binary>> = input
+      <<plaintext::binary-size(^plaintext_size), new_buffer::binary>> = input
       cipher = :crypto.exor(plaintext, :crypto.crypto_update(crypto_state, blocks))
 
       {
