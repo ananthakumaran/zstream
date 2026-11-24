@@ -148,7 +148,8 @@ defmodule Zstream.Unzip.Extra do
           compressed_size::little-size(64), rest::binary>>,
         acc
       ) do
-    {_data, rest} = :erlang.split_binary(rest, tsize - 16)
+    tsize = tsize - 16
+    <<_data::binary-size(^tsize), rest::binary>> = rest
 
     zip64_extended_information = %Zip64ExtendedInformation{
       size: size,
@@ -159,7 +160,7 @@ defmodule Zstream.Unzip.Extra do
   end
 
   def parse(<<signature::little-size(16), tsize::little-size(16), rest::binary>>, acc) do
-    {data, rest} = :erlang.split_binary(rest, tsize)
+    <<data::binary-size(^tsize), rest::binary>> = rest
 
     parse(rest, [
       %Unknown{signature: Integer.to_string(signature, 16), tsize: tsize, data: data} | acc
